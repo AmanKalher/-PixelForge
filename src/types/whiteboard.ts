@@ -18,9 +18,37 @@ export type ToolType =
   | 'pan'
   | 'brush'
   | 'highlighter'
+  | 'eraser'
   | 'sticky'
   | 'text'
+  | 'pen'
+  | 'marker'
+  | 'pencil'
+  | 'calligraphy'
   | ShapeSubtype;
+
+export interface BrushSettings {
+  kind: 'pen' | 'marker' | 'pencil' | 'calligraphy';
+  color: string;
+  width: number;
+  opacity: number;
+  pressureEnabled: boolean;
+  highlighterColor: string;
+  eraserMode: 'sweep' | 'whole';
+  eraserWidth: number;
+}
+
+export interface TextFormattingSettings {
+  fontFamily: string;
+  fontSize: number;
+  fill: string;
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  textAlign: 'left' | 'center' | 'right' | 'justify';
+  backgroundColor: string;
+  lineHeight: number;
+}
 
 export interface StyleConfig {
   strokeColor: string;
@@ -77,7 +105,13 @@ export interface CanvasObject {
   opacity?: number;
   fontSize?: number;
   fontWeight?: 'normal' | 'bold';
+  fontStyle?: 'normal' | 'italic';
+  underline?: boolean;
   textAlign?: 'left' | 'center' | 'right';
+  fontFamily?: string;
+  lineHeight?: number;
+  backgroundColor?: string;
+  template?: string;
   points?: { x: number; y: number }[];
   borderRadius?: number | [number, number, number, number];
   visible?: boolean;

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { ToolType } from '../types/whiteboard';
+import { globalFabricCanvasAdapter } from '../engine/fabricCanvasAdapter';
 
 interface KeyboardShortcutsOptions {
   onSelectTool: (tool: ToolType) => void;
@@ -26,10 +27,28 @@ export function useKeyboardShortcuts({
     if (disabled) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 1. Guard against active text editing in inputs, textareas, selects, or contenteditables
+      // 1. Guard against active text editing in inputs, textareas, selects, contenteditables, or Fabric.js editing
+      const activeFabricObj = globalFabricCanvasAdapter.getCanvas()?.getActiveObject() as any;
+      if (activeFabricObj && activeFabricObj.isEditing) {
+        if (e.key === 'Escape') {
+          activeFabricObj.exitEditing?.();
+          onEscape();
+        }
+        return;
+      }
+
       const target = e.target as HTMLElement | null;
+      const isFabricHiddenTextarea =
+        target &&
+        target.tagName === 'TEXTAREA' &&
+        (target.classList.contains('fabric-canvas-textarea') ||
+          target.classList.contains('canvas-hidden-textarea') ||
+          Boolean(target.closest?.('.canvas-container')) ||
+          Boolean(target.closest?.('[data-fabric]')));
+
       if (
         target &&
+        !isFabricHiddenTextarea &&
         (target.tagName === 'INPUT' ||
           target.tagName === 'TEXTAREA' ||
           target.tagName === 'SELECT' ||
@@ -77,6 +96,32 @@ export function useKeyboardShortcuts({
         return;
       }
 
+      // Duplicate shortcut (Ctrl+D / Cmd+D)
+      if (isCtrlOrMeta && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        globalFabricCanvasAdapter.duplicateSelected();
+        return;
+      }
+
+      // Arrow keys nudging
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        const canvas = globalFabricCanvasAdapter.getCanvas();
+        const active = canvas?.getActiveObject() as any;
+        if (active && !active.isEditing) {
+          e.preventDefault();
+          const step = e.shiftKey ? 10 : 1;
+          const delta: Record<string, [number, number]> = {
+            ArrowUp: [0, -step],
+            ArrowDown: [0, step],
+            ArrowLeft: [-step, 0],
+            ArrowRight: [step, 0],
+          };
+          const [dx, dy] = delta[e.key] || [0, 0];
+          globalFabricCanvasAdapter.nudgeSelected(dx, dy);
+          return;
+        }
+      }
+
       // Zoom In (+ or =)
       if (e.key === '+' || e.key === '=') {
         e.preventDefault();
@@ -119,6 +164,10 @@ export function useKeyboardShortcuts({
         case 'l':
           e.preventDefault();
           onSelectTool('highlighter');
+          break;
+        case 'e':
+          e.preventDefault();
+          onSelectTool('eraser');
           break;
         case 'a':
           e.preventDefault();

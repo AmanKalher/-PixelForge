@@ -13,10 +13,13 @@ export const BottomRightControls: React.FC = () => {
     isGridSnapEnabled,
     toggleGridSnap,
     duplicateSelected,
-    selectedMockObjectId,
+    hasActiveObject,
     isMinimapOpen,
     zoom,
     pan,
+    mockObjects,
+    selectedMockObjectId,
+    canvasEngine,
   } = useWorkspace();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -28,6 +31,17 @@ export const BottomRightControls: React.FC = () => {
     } else {
       document.exitFullscreen?.().catch(() => {});
       setIsFullscreen(false);
+    }
+  };
+
+  const handleMinimapClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const worldX = (px / rect.width) * 1400;
+    const worldY = (py / rect.height) * 900;
+    if (canvasEngine.panTo) {
+      canvasEngine.panTo(worldX, worldY);
     }
   };
 
@@ -43,14 +57,14 @@ export const BottomRightControls: React.FC = () => {
         className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center select-none"
         aria-label="Canvas action controls"
       >
-        <div className="bg-white border border-slate-200 rounded-full shadow-md px-3 py-1 flex items-center gap-1.5 text-slate-600">
+        <div className="bg-white border border-[#EFE5D8] rounded-full shadow-md px-3 py-1 flex items-center gap-1.5 text-[#302633]">
           {/* Grid Toggle */}
           <button
             onClick={toggleGridSnap}
-            className={`p-1.5 rounded-full transition ${
+            className={`p-1.5 rounded-full transition cursor-pointer ${
               isGridSnapEnabled
-                ? 'bg-indigo-50 text-indigo-600 font-semibold'
-                : 'hover:bg-slate-100 text-slate-600'
+                ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
+                : 'hover:bg-[#FFF9F0] text-[#302633]/70 hover:text-[#302633]'
             }`}
             title={isGridSnapEnabled ? 'Disable Grid Snap' : 'Enable Grid Snap'}
             aria-label="Grid Snap"
@@ -61,7 +75,7 @@ export const BottomRightControls: React.FC = () => {
           {/* Fullscreen Toggle */}
           <button
             onClick={toggleFullscreen}
-            className="p-1.5 rounded-full hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition"
+            className="p-1.5 rounded-full hover:bg-[#FFF9F0] text-[#302633]/70 hover:text-[#302633] transition cursor-pointer"
             title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
             aria-label="Toggle Fullscreen"
           >
@@ -75,11 +89,11 @@ export const BottomRightControls: React.FC = () => {
           {/* Duplicate Object */}
           <button
             onClick={duplicateSelected}
-            disabled={!selectedMockObjectId}
+            disabled={!hasActiveObject}
             className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition ${
-              selectedMockObjectId
-                ? 'hover:bg-slate-100 text-slate-700 hover:text-slate-900 cursor-pointer font-medium'
-                : 'text-slate-300 cursor-not-allowed'
+              hasActiveObject
+                ? 'hover:bg-[#FFF9F0] text-[#302633] cursor-pointer font-medium'
+                : 'text-[#302633]/30 cursor-not-allowed'
             }`}
             title="Duplicate Selected Object (Ctrl+D)"
             aria-label="Duplicate"
@@ -93,38 +107,70 @@ export const BottomRightControls: React.FC = () => {
       {/* 2. Bottom-Right: Clean, Compact White-Framed Minimap Card with Explicit Label */}
       {isMinimapOpen && (
         <div
-          className="fixed bottom-4 right-76 z-20 w-48 bg-white border border-slate-200 rounded-xl shadow-md p-2 select-none animate-in fade-in zoom-in-95 duration-100"
+          className="fixed bottom-4 right-76 z-20 w-48 bg-white border border-[#EFE5D8] rounded-2xl shadow-md p-2.5 select-none animate-in fade-in zoom-in-95 duration-100"
           aria-label="Canvas Minimap"
         >
-          {/* Clearly Visible "Minimap" Label */}
-          <div className="flex items-center justify-between pb-1.5 px-0.5 text-slate-700">
+          {/* Visible "Minimap" Label */}
+          <div className="flex items-center justify-between pb-2 px-0.5 text-[#302633]">
             <div className="flex items-center gap-1.5">
-              <Map className="w-3.5 h-3.5 text-indigo-600" />
-              <span className="text-[11px] font-bold tracking-tight text-slate-800">
+              <Map className="w-3.5 h-3.5 text-[#6D3B67]" />
+              <span className="text-[11px] font-bold tracking-tight text-[#302633]">
                 Minimap
               </span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">
+            <span className="text-[10px] text-[#302633]/50 font-mono">
               {Math.round(zoom * 100)}%
             </span>
           </div>
 
           <div
-            className="w-full h-24 bg-[#F8FAFC] rounded-lg border border-slate-200 relative flex items-center justify-center overflow-hidden"
+            onClick={handleMinimapClick}
+            className="w-full h-24 bg-[#FFFDF9] rounded-xl border border-[#EFE5D8] relative flex items-center justify-center overflow-hidden cursor-crosshair"
             style={{
-              backgroundImage: `radial-gradient(circle, #CBD5E1 1px, transparent 1px)`,
+              backgroundImage: `radial-gradient(circle, #E0D6C8 1px, transparent 1px)`,
               backgroundSize: '10px 10px',
             }}
+            title="Click to navigate canvas viewport"
           >
             {/* Miniature Object Footprints */}
-            <div className="absolute w-5 h-4 bg-yellow-400/40 border border-yellow-500/50 rounded-xs left-3 top-3" />
-            <div className="absolute w-5 h-4 bg-emerald-400/40 border border-emerald-500/50 rounded-xs left-3 top-8" />
-            <div className="absolute w-12 h-6 bg-purple-400/35 border border-purple-500/50 rounded-xs left-10 top-9" />
-            <div className="absolute w-3 h-3 rounded-full bg-indigo-400/50 border border-indigo-500/60 left-10 top-4" />
-            <div className="absolute w-3 h-3 bg-purple-400/50 border border-purple-500/60 rotate-45 left-15 top-4" />
-            <div className="absolute w-4 h-3 bg-emerald-400/50 border border-emerald-500/60 rounded-xs left-20 top-4" />
+            {mockObjects && mockObjects.length > 0 ? (
+              mockObjects.map((obj) => {
+                if (obj.visible === false) return null;
+                const left = Math.max(2, Math.min(160, (obj.x / 1400) * 160 + 10));
+                const top = Math.max(2, Math.min(76, (obj.y / 900) * 80 + 8));
+                const width = Math.max(4, Math.min(36, ((obj.width ?? 100) / 1400) * 160));
+                const height = Math.max(3, Math.min(24, ((obj.height ?? 80) / 900) * 80));
+                const isSelected = obj.id === selectedMockObjectId;
 
-            {/* Viewport Boundary Indicator Box (Synchronized with Pan & Zoom) */}
+                let bgClass = 'bg-[#F26B5B]/40 border-[#F26B5B]/60 rounded-xs';
+                if (obj.type === 'sticky') {
+                  bgClass = 'bg-[#F7D774]/70 border-[#F7D774] rounded-xs';
+                } else if (obj.type === 'circle') {
+                  bgClass = 'bg-[#6D3B67]/40 border-[#6D3B67]/60 rounded-full';
+                } else if (obj.type === 'rectangle') {
+                  bgClass = 'bg-[#A8B9A0]/50 border-[#A8B9A0] rounded-xs';
+                } else if (obj.type === 'text') {
+                  bgClass = 'bg-[#302633]/30 border-[#302633]/40';
+                }
+
+                return (
+                  <div
+                    key={obj.id}
+                    className={`absolute border transition-all duration-75 ${bgClass} ${
+                      isSelected ? 'ring-2 ring-[#F26B5B] ring-offset-0.5' : ''
+                    }`}
+                    style={{
+                      left: `${left}px`,
+                      top: `${top}px`,
+                      width: `${width}px`,
+                      height: `${height}px`,
+                    }}
+                  />
+                );
+              })
+            ) : null}
+
+            {/* Viewport Boundary Indicator Box */}
             <div
               style={{
                 width: `${boxW}px`,
@@ -132,7 +178,7 @@ export const BottomRightControls: React.FC = () => {
                 left: `${boxLeft}px`,
                 top: `${boxTop}px`,
               }}
-              className="absolute border-2 border-[#6366F1] rounded-xs bg-indigo-500/10 pointer-events-none transition-all duration-75"
+              className="absolute border-2 border-[#F26B5B] rounded-xs bg-[#F26B5B]/10 pointer-events-none transition-all duration-75"
             />
           </div>
         </div>

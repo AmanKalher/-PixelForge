@@ -127,7 +127,7 @@ export const UIPreviewOverlay: React.FC = () => {
               height: Math.max(20, maxY - minY + strokeWidthVal * 2),
               points: relativePoints,
               strokeColor:
-                activeTool === 'highlighter' ? '#fef08a' : styleConfig.strokeColor || '#6366f1',
+                activeTool === 'highlighter' ? '#fef08a' : styleConfig.strokeColor || '#F26B5B',
               strokeWidth: strokeWidthVal,
               opacity: activeTool === 'highlighter' ? 0.45 : 1,
             }
@@ -352,44 +352,44 @@ export const UIPreviewOverlay: React.FC = () => {
       {/* 4 Corner Resize Handles */}
       <span
         onPointerDown={(e) => handleResizePointerDown(e, obj, 'nw')}
-        className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs cursor-nwse-resize pointer-events-auto z-30 shadow-xs hover:scale-125 transition-transform"
+        className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#F26B5B] rounded-xs cursor-nwse-resize pointer-events-auto z-30 shadow-xs hover:scale-125 transition-transform"
         title="Resize top-left"
       />
       <span
         onPointerDown={(e) => handleResizePointerDown(e, obj, 'ne')}
-        className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs cursor-nesw-resize pointer-events-auto z-30 shadow-xs hover:scale-125 transition-transform"
+        className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#F26B5B] rounded-xs cursor-nesw-resize pointer-events-auto z-30 shadow-xs hover:scale-125 transition-transform"
         title="Resize top-right"
       />
       <span
         onPointerDown={(e) => handleResizePointerDown(e, obj, 'sw')}
-        className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs cursor-nesw-resize pointer-events-auto z-30 shadow-xs hover:scale-125 transition-transform"
+        className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#F26B5B] rounded-xs cursor-nesw-resize pointer-events-auto z-30 shadow-xs hover:scale-125 transition-transform"
         title="Resize bottom-left"
       />
       <span
         onPointerDown={(e) => handleResizePointerDown(e, obj, 'se')}
-        className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs cursor-nwse-resize pointer-events-auto z-30 shadow-xs hover:scale-125 transition-transform"
+        className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#F26B5B] rounded-xs cursor-nwse-resize pointer-events-auto z-30 shadow-xs hover:scale-125 transition-transform"
         title="Resize bottom-right"
       />
 
       {/* 4 Edge Resize Handles */}
       <span
         onPointerDown={(e) => handleResizePointerDown(e, obj, 'n')}
-        className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-2 bg-white border-2 border-indigo-600 rounded-xs cursor-ns-resize pointer-events-auto z-30 shadow-xs hover:scale-125 transition-transform"
+        className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-2 bg-white border-2 border-[#F26B5B] rounded-xs cursor-ns-resize pointer-events-auto z-30 shadow-xs hover:scale-125 transition-transform"
         title="Resize top"
       />
       <span
         onPointerDown={(e) => handleResizePointerDown(e, obj, 's')}
-        className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-2 bg-white border-2 border-indigo-600 rounded-xs cursor-ns-resize pointer-events-auto z-30 shadow-xs hover:scale-125 transition-transform"
+        className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-2 bg-white border-2 border-[#F26B5B] rounded-xs cursor-ns-resize pointer-events-auto z-30 shadow-xs hover:scale-125 transition-transform"
         title="Resize bottom"
       />
       <span
         onPointerDown={(e) => handleResizePointerDown(e, obj, 'w')}
-        className="absolute top-1/2 -translate-y-1/2 -left-1 w-2 h-4 bg-white border-2 border-indigo-600 rounded-xs cursor-ew-resize pointer-events-auto z-30 shadow-xs hover:scale-125 transition-transform"
+        className="absolute top-1/2 -translate-y-1/2 -left-1 w-2 h-4 bg-white border-2 border-[#F26B5B] rounded-xs cursor-ew-resize pointer-events-auto z-30 shadow-xs hover:scale-125 transition-transform"
         title="Resize left"
       />
       <span
         onPointerDown={(e) => handleResizePointerDown(e, obj, 'e')}
-        className="absolute top-1/2 -translate-y-1/2 -right-1 w-2 h-4 bg-white border-2 border-indigo-600 rounded-xs cursor-ew-resize pointer-events-auto z-30 shadow-xs hover:scale-125 transition-transform"
+        className="absolute top-1/2 -translate-y-1/2 -right-1 w-2 h-4 bg-white border-2 border-[#F26B5B] rounded-xs cursor-ew-resize pointer-events-auto z-30 shadow-xs hover:scale-125 transition-transform"
         title="Resize right"
       />
     </>
@@ -425,7 +425,7 @@ export const UIPreviewOverlay: React.FC = () => {
             borderColor: obj.strokeColor || '#ca8a04',
           }}
           className={`absolute rounded-xl p-3 shadow-[0_2px_10px_rgba(0,0,0,0.06)] cursor-move pointer-events-auto select-none flex flex-col justify-between transition-shadow ${
-            isSelected ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-[#F8FAFC]' : 'hover:shadow-md'
+            isSelected ? 'ring-2 ring-[#F26B5B] ring-offset-2 ring-offset-[#FAF8F5]' : 'hover:shadow-md'
           }`}
         >
           {isSelected && renderSelectionHandles(obj)}
@@ -506,7 +506,7 @@ export const UIPreviewOverlay: React.FC = () => {
             opacity: obj.opacity !== undefined ? obj.opacity : 1,
           }}
           className={`absolute flex flex-col items-center justify-center cursor-move pointer-events-auto select-none shadow-sm ${
-            isSelected ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-[#F8FAFC]' : 'hover:shadow-md'
+            isSelected ? 'ring-2 ring-[#F26B5B] ring-offset-2 ring-offset-[#FAF8F5]' : 'hover:shadow-md'
           }`}
         >
           {isSelected && renderSelectionHandles(obj)}
@@ -539,11 +539,11 @@ export const UIPreviewOverlay: React.FC = () => {
             height: size,
             backgroundColor: obj.fillColor || '#eef2ff',
             borderWidth: `${obj.strokeWidth || 2}px`,
-            borderColor: obj.strokeColor || '#6366f1',
+            borderColor: obj.strokeColor || '#F26B5B',
             opacity: obj.opacity !== undefined ? obj.opacity : 1,
           }}
           className={`absolute rounded-full flex items-center justify-center cursor-move pointer-events-auto select-none shadow-sm ${
-            isSelected ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-[#F8FAFC]' : 'hover:shadow-md'
+            isSelected ? 'ring-2 ring-[#F26B5B] ring-offset-2 ring-offset-[#FAF8F5]' : 'hover:shadow-md'
           }`}
         >
           {isSelected && renderSelectionHandles(obj)}
@@ -578,7 +578,7 @@ export const UIPreviewOverlay: React.FC = () => {
             opacity: obj.opacity !== undefined ? obj.opacity : 1,
           }}
           className={`absolute flex items-center justify-center cursor-move pointer-events-auto select-none ${
-            isSelected ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-[#F8FAFC] rounded-full' : ''
+            isSelected ? 'ring-2 ring-[#F26B5B] ring-offset-2 ring-offset-[#FAF8F5] rounded-full' : ''
           }`}
         >
           {isSelected && renderSelectionHandles(obj)}
@@ -589,7 +589,7 @@ export const UIPreviewOverlay: React.FC = () => {
               rx="46"
               ry="26"
               fill={obj.fillColor || '#eef2ff'}
-              stroke={obj.strokeColor || '#6366f1'}
+              stroke={obj.strokeColor || '#F26B5B'}
               strokeWidth={obj.strokeWidth || 2}
             />
           </svg>
@@ -616,7 +616,7 @@ export const UIPreviewOverlay: React.FC = () => {
             opacity: obj.opacity !== undefined ? obj.opacity : 1,
           }}
           className={`absolute flex items-center justify-center cursor-move pointer-events-auto select-none ${
-            isSelected ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-[#F8FAFC] rounded-lg' : ''
+            isSelected ? 'ring-2 ring-[#F26B5B] ring-offset-2 ring-offset-[#FAF8F5] rounded-lg' : ''
           }`}
         >
           {isSelected && renderSelectionHandles(obj)}
@@ -652,7 +652,7 @@ export const UIPreviewOverlay: React.FC = () => {
             opacity: obj.opacity !== undefined ? obj.opacity : 1,
           }}
           className={`absolute flex items-center justify-center cursor-move pointer-events-auto select-none ${
-            isSelected ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-[#F8FAFC] rounded-lg' : ''
+            isSelected ? 'ring-2 ring-[#F26B5B] ring-offset-2 ring-offset-[#FAF8F5] rounded-lg' : ''
           }`}
         >
           {isSelected && renderSelectionHandles(obj)}
@@ -686,7 +686,7 @@ export const UIPreviewOverlay: React.FC = () => {
             height: Math.max(16, (obj.strokeWidth || 2) + 12),
           }}
           className={`absolute flex items-center cursor-move pointer-events-auto select-none ${
-            isSelected ? 'ring-2 ring-indigo-500 rounded px-1' : ''
+            isSelected ? 'ring-2 ring-[#F26B5B] rounded px-1' : ''
           }`}
         >
           {isSelected && renderSelectionHandles(obj)}
@@ -705,7 +705,7 @@ export const UIPreviewOverlay: React.FC = () => {
     if (obj.type === 'arrow') {
       const width = obj.width || 180;
       const strokeW = obj.strokeWidth || 2;
-      const color = obj.strokeColor || '#6366f1';
+      const color = obj.strokeColor || '#F26B5B';
 
       return (
         <div
@@ -717,7 +717,7 @@ export const UIPreviewOverlay: React.FC = () => {
             height: 32,
           }}
           className={`absolute flex items-center cursor-move pointer-events-auto select-none ${
-            isSelected ? 'ring-2 ring-indigo-500 rounded-sm px-1' : ''
+            isSelected ? 'ring-2 ring-[#F26B5B] rounded-sm px-1' : ''
           }`}
         >
           {isSelected && renderSelectionHandles(obj)}
@@ -765,7 +765,7 @@ export const UIPreviewOverlay: React.FC = () => {
             color: obj.strokeColor || '#1e293b',
           }}
           className={`absolute p-1.5 cursor-move pointer-events-auto rounded-lg select-none transition ${
-            isSelected ? 'bg-white/80 ring-2 ring-indigo-500 shadow-sm' : 'hover:bg-slate-200/40'
+            isSelected ? 'bg-white/80 ring-2 ring-[#F26B5B] shadow-sm' : 'hover:bg-slate-200/40'
           }`}
         >
           {isSelected && !isEditing && renderSelectionHandles(obj)}
@@ -809,7 +809,7 @@ export const UIPreviewOverlay: React.FC = () => {
 
     // 10. FREEHAND BRUSH STROKE
     if (obj.type === 'brush') {
-      const color = obj.strokeColor || '#6366f1';
+      const color = obj.strokeColor || '#F26B5B';
       const strokeW = obj.strokeWidth || 3;
       const pts = obj.points || [];
 
@@ -823,7 +823,7 @@ export const UIPreviewOverlay: React.FC = () => {
             height: obj.height || 60,
           }}
           className={`absolute cursor-move pointer-events-auto select-none ${
-            isSelected ? 'ring-2 ring-indigo-500 rounded-lg p-1' : ''
+            isSelected ? 'ring-2 ring-[#F26B5B] rounded-lg p-1' : ''
           }`}
         >
           {isSelected && renderSelectionHandles(obj)}
@@ -857,7 +857,7 @@ export const UIPreviewOverlay: React.FC = () => {
             height: obj.height || 36,
           }}
           className={`absolute cursor-move pointer-events-auto select-none ${
-            isSelected ? 'ring-2 ring-indigo-500 rounded-lg p-1' : ''
+            isSelected ? 'ring-2 ring-[#F26B5B] rounded-lg p-1' : ''
           }`}
         >
           {isSelected && renderSelectionHandles(obj)}
@@ -922,7 +922,7 @@ export const UIPreviewOverlay: React.FC = () => {
                 stroke={
                   currentStroke.tool === 'highlighter'
                     ? '#fef08a'
-                    : styleConfig.strokeColor || '#6366f1'
+                    : styleConfig.strokeColor || '#F26B5B'
                 }
                 strokeWidth={
                   currentStroke.tool === 'highlighter'

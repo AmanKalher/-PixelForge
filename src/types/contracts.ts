@@ -13,7 +13,10 @@
 
 import {
   ToolType,
+  CanvasObject,
   StyleConfig,
+  BrushSettings,
+  TextFormattingSettings,
   ExportOptions,
   ExportResult,
   UndoRedoCapabilities,
@@ -84,9 +87,14 @@ export interface CanvasEngineContract {
   duplicateSelected(): Promise<void> | void;
 
   /**
-   * Reorders currently selected canvas object to the front.
+   * Reorders currently selected canvas object forward by one layer.
    */
   bringForwardSelected(): Promise<void> | void;
+
+  /**
+   * Reorders currently selected canvas object all the way to the front.
+   */
+  bringToFrontSelected?(): Promise<void> | void;
 
   /**
    * Exports the canvas as PNG or SVG string/data-URI.
@@ -123,6 +131,111 @@ export interface CanvasEngineContract {
    * Defined as a typed integration hook for Member 2's Fabric.js coordinate transformation.
    */
   onCoordinatesChange?(listener: (coords: { x: number; y: number }) => void): () => void;
+
+  /**
+   * Selects an object on the canvas by its ID.
+   */
+  selectObject?(id: string | null): void;
+
+  /**
+   * Sets the visibility of a canvas object by its ID.
+   */
+  setObjectVisibility?(id: string, visible: boolean): void;
+
+  /**
+   * Subscribes to changes in the list of objects on the canvas.
+   */
+  onObjectsChange?(listener: (objects: CanvasObject[]) => void): () => void;
+
+  /**
+   * Subscribes to selection changes on the canvas.
+   */
+  onSelectionChange?(listener: (selectedId: string | null, selectedObject?: CanvasObject | null) => void): () => void;
+
+  /**
+   * Subscribes to bounding box position changes of the active selection in screen coordinates.
+   */
+  onSelectionBoundsChange?(listener: (bounds: { left: number; top: number; width: number; height: number } | null) => void): () => void;
+
+  /**
+   * Reorders currently selected canvas object backward by one layer.
+   */
+  sendBackwardSelected?(): Promise<void> | void;
+
+  /**
+   * Reorders currently selected canvas object all the way to the back.
+   */
+  sendToBackSelected?(): Promise<void> | void;
+
+  /**
+   * Directly updates properties of a specific canvas object by ID.
+   */
+  updateObjectProperties?(id: string, updates: Partial<CanvasObject>): void;
+
+  /**
+   * Nudges the currently selected object(s) by dx and dy in world units.
+   */
+  nudgeSelected?(dx: number, dy: number): void;
+
+  /**
+   * Centers canvas viewport at specified world coordinates.
+   */
+  panTo?(worldX: number, worldY: number): void;
+
+  /**
+   * Updates Brush Studio settings.
+   */
+  setBrushSettings?(settings: Partial<BrushSettings>): void;
+
+  /**
+   * Retrieves active Brush Studio settings.
+   */
+  getBrushSettings?(): BrushSettings;
+
+  /**
+   * Subscribes to changes in brush settings.
+   */
+  onBrushSettingsChange?(listener: (settings: BrushSettings) => void): () => void;
+
+  /**
+   * Sets active sticky-note template ID.
+   */
+  setStickyTemplate?(template: string): void;
+
+  /**
+   * Gets active sticky-note template ID.
+   */
+  getStickyTemplate?(): string;
+
+  /**
+   * Creates a sticky note at world coordinates.
+   */
+  createStickyNoteAt?(options: { template?: string; x: number; y: number; header?: string; body?: string }): Promise<void>;
+
+  /**
+   * Applies rich text styling to selected text on canvas.
+   */
+  applyTextStyle?(style: Partial<TextFormattingSettings>): void;
+
+  /**
+   * Highlights selected characters in text editing mode.
+   */
+  highlightSelectedText?(color?: string): void;
+
+  /**
+   * Highlights whole active text object.
+   */
+  highlightWholeText?(color?: string): void;
+
+  /**
+   * Changes template of currently selected sticky note.
+   */
+  changeStickyTemplate?(templateKey: string): Promise<void>;
+
+  /**
+   * Seeds optional demo fixtures onto the canvas on user demand.
+   */
+  seedDemoContent?(): Promise<void>;
 }
 
 /**

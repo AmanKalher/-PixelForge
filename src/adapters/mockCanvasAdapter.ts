@@ -96,6 +96,18 @@ export class MockCanvasAdapter implements CanvasEngineContract {
     this.recordAction('bringForwardSelected');
   }
 
+  async bringToFrontSelected(): Promise<void> {
+    this.recordAction('bringToFrontSelected');
+  }
+
+  async sendBackwardSelected(): Promise<void> {
+    this.recordAction('sendBackwardSelected');
+  }
+
+  async sendToBackSelected(): Promise<void> {
+    this.recordAction('sendToBackSelected');
+  }
+
   async exportCanvas(options: ExportOptions): Promise<ExportResult> {
     this.recordAction('exportCanvas', options);
     // Explicitly return a simulated result per section 6J
@@ -135,6 +147,22 @@ export class MockCanvasAdapter implements CanvasEngineContract {
   onCoordinatesChange(listener: (coords: { x: number; y: number }) => void): () => void {
     this.coordinatesListeners.add(listener);
     return () => this.coordinatesListeners.delete(listener);
+  }
+
+  selectObject(id: string | null): void {
+    this.recordAction('selectObject', { id });
+  }
+
+  setObjectVisibility(id: string, visible: boolean): void {
+    this.recordAction('setObjectVisibility', { id, visible });
+  }
+
+  onObjectsChange(_listener: (objects: any[]) => void): () => void {
+    return () => {};
+  }
+
+  onSelectionChange(_listener: (selectedId: string | null, selectedObject?: any) => void): () => void {
+    return () => {};
   }
 
   private notifyUndoRedo() {

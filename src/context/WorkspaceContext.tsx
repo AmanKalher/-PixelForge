@@ -18,16 +18,15 @@ import {
   EngineReadinessState,
   ExportOptions,
   ExportResult,
+  BrushSettings,
+  TextFormattingSettings,
 } from '../types/whiteboard';
-import {
-  CanvasEngineContract,
-  CollaborationClientContract,
-} from '../types/contracts';
+import { CanvasEngineContract, CollaborationClientContract } from '../types/contracts';
 import { MockCanvasAdapter } from '../adapters/mockCanvasAdapter';
 import { MockCollabAdapter } from '../adapters/mockCollabAdapter';
+import { globalFabricCanvasAdapter } from '../engine/fabricCanvasAdapter';
 import {
   DEFAULT_STYLE_CONFIG,
-  INITIAL_PREVIEW_OBJECTS,
   MOCK_COLLABORATORS,
 } from '../mocks/demoData';
 
@@ -81,11 +80,29 @@ export interface WorkspaceContextValue {
   deleteSelected: () => void;
   duplicateSelected: () => void;
   bringForwardSelected: () => void;
+  sendBackwardSelected: () => void;
+
+  // Brush Studio & Sticky Gallery
+  brushSettings: BrushSettings;
+  updateBrushSettings: (settings: Partial<BrushSettings>) => void;
+  selectedStickyTemplate: string;
+  setSelectedStickyTemplate: (template: string) => void;
+  isStickyGalleryOpen: boolean;
+  setIsStickyGalleryOpen: (open: boolean) => void;
+  isBrushStudioOpen: boolean;
+  setIsBrushStudioOpen: (open: boolean) => void;
+  applyTextStyle: (style: Partial<TextFormattingSettings>) => void;
+  highlightSelectedText: (color?: string) => void;
+  highlightWholeText: (color?: string) => void;
+  changeStickyTemplate: (templateKey: string) => void;
+  loadDemoFixtures: () => void;
 
   // Preview Mode & Mock Selection
   isUIPreviewMode: boolean;
   toggleUIPreviewMode: () => void;
+  selectedCanvasObject: CanvasObject | null;
   selectedMockObjectId: string | null;
+  hasActiveObject: boolean;
   setSelectedMockObjectId: (id: string | null) => void;
   mockObjects: CanvasObject[];
   createMockObject: (type?: ToolType, position?: { x: number; y: number }, customProps?: Partial<CanvasObject>) => CanvasObject;
@@ -128,6 +145,9 @@ export interface WorkspaceContextValue {
   // Actions
   exportCanvas: (options: ExportOptions) => Promise<ExportResult>;
 
+  // Selection Screen Bounds for dynamic floating contextual bar
+  selectionScreenBounds: { left: number; top: number; width: number; height: number } | null;
+
   // Underlying Adapters
   canvasEngine: CanvasEngineContract;
   collabClient: CollaborationClientContract;
@@ -136,7 +156,7 @@ export interface WorkspaceContextValue {
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 // Default singleton fallback adapters for clean dependency injection
-const defaultMockCanvasAdapter = new MockCanvasAdapter();
+export const defaultMockCanvasAdapter = new MockCanvasAdapter();
 const defaultMockCollabAdapter = new MockCollabAdapter();
 
 const getInitialGuestUser = (): GuestUserInfo => {
@@ -148,7 +168,7 @@ const getInitialGuestUser = (): GuestUserInfo => {
         if (parsed && typeof parsed.name === 'string' && parsed.name.trim().length > 0 && parsed.hasEntered) {
           return {
             name: parsed.name,
-            color: parsed.color || '#4f46e5',
+            color: parsed.color || '#F26B5B',
             hasEntered: true,
           };
         }
@@ -159,7 +179,7 @@ const getInitialGuestUser = (): GuestUserInfo => {
   }
   return {
     name: '',
-    color: '#4f46e5',
+    color: '#F26B5B',
     hasEntered: false,
   };
 };
@@ -172,14 +192,14 @@ interface WorkspaceProviderProps {
 
 export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
   children,
-  canvasEngine = defaultMockCanvasAdapter,
+  canvasEngine = globalFabricCanvasAdapter,
   collabClient = defaultMockCollabAdapter,
 }) => {
   // Guest Identity
   const [guestUser, setGuestUserState] = useState<GuestUserInfo>(getInitialGuestUser);
 
   // Board Title
-  const [boardTitle, setBoardTitle] = useState<string>('Webster Sprint Canvas');
+  const [boardTitle, setBoardTitle] = useState<string>('Untitled Board');
 
   // Active Tool & Shapes
   const [activeTool, setActiveToolState] = useState<ToolType>('select');
@@ -197,11 +217,24 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
 
   // Engine state subscriptions
   const [engineReadiness, setEngineReadiness] = useState<EngineReadinessState>('ready');
+  const [engineUndoRedo, setEngineUndoRedo] = useState<UndoRedoCapabilities>({
+    canUndo: false,
+    canRedo: false,
+  });
 
-  // Preview Mode & Mock Selection
-  const [isUIPreviewMode, setIsUIPreviewMode] = useState<boolean>(true);
+  // Preview Mode & Mock Selection (false defaults to real Fabric.js canvas engine)
+  const [isUIPreviewMode, setIsUIPreviewMode] = useState<boolean>(false);
+  const [selectedCanvasObject, setSelectedCanvasObject] = useState<CanvasObject | null>(null);
   const [selectedMockObjectId, setSelectedMockObjectIdState] = useState<string | null>(null);
+  const [hasActiveFabricObject, setHasActiveFabricObject] = useState<boolean>(false);
+  const [selectionScreenBounds, setSelectionScreenBounds] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
+  const [fabricObjects, setFabricObjects] = useState<CanvasObject[]>([]);
 
   // =========================================================================
   // FUNCTIONAL IMMUTABLE HISTORY ENGINE (Undo / Redo for Mock Preview Objects)
@@ -212,20 +245,27 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
     future: CanvasObject[][];
   }>({
     past: [],
-    present: INITIAL_PREVIEW_OBJECTS,
+    present: [],
     future: [],
   });
 
-  // Derived mockObjects directly from immutable present state
-  const mockObjects = history.present;
+  // Derived mockObjects: uses live Fabric objects when in real engine mode
+  const mockObjects = useMemo(() => {
+    if (isUIPreviewMode) return history.present;
+    if (engineReadiness === 'ready') return fabricObjects;
+    return history.present;
+  }, [isUIPreviewMode, engineReadiness, fabricObjects, history.present]);
 
-  // Dynamically compute undo/redo capabilities based on history stack length
+  // Dynamically compute undo/redo capabilities based on mode and history stack
   const undoRedoCapabilities = useMemo<UndoRedoCapabilities>(() => {
+    if (!isUIPreviewMode) {
+      return engineUndoRedo;
+    }
     return {
       canUndo: history.past.length > 0,
       canRedo: history.future.length > 0,
     };
-  }, [history.past.length, history.future.length]);
+  }, [isUIPreviewMode, engineUndoRedo, history.past.length, history.future.length]);
 
   // Keep a ref to latest history for callbacks
   const historyRef = useRef(history);
@@ -256,58 +296,59 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
     }
   }, []);
 
-  // Functional Undo
+  // Undo Handler
   const undo = useCallback(() => {
-    const current = historyRef.current;
-    if (current.past.length === 0) return;
-
-    const previous = current.past[current.past.length - 1];
-    const newPast = current.past.slice(0, current.past.length - 1);
-
-    setHistory({
-      past: newPast,
-      present: previous,
-      future: [current.present, ...current.future],
-    });
-
-    // Deselect or ensure valid selection
-    setSelectedMockObjectIdState((prevId) => {
-      if (prevId && previous.some((o) => o.id === prevId)) {
-        return prevId;
-      }
-      return null;
-    });
-    setEditingObjectId(null);
-
-    // Call engine contract for contract fidelity
     canvasEngine.undo();
-  }, [canvasEngine]);
 
-  // Functional Redo
+    if (isUIPreviewMode) {
+      const current = historyRef.current;
+      if (current.past.length === 0) return;
+
+      const previous = current.past[current.past.length - 1];
+      const newPast = current.past.slice(0, current.past.length - 1);
+
+      setHistory({
+        past: newPast,
+        present: previous,
+        future: [current.present, ...current.future],
+      });
+
+      setSelectedMockObjectIdState((prevId) => {
+        if (prevId && previous.some((o) => o.id === prevId)) {
+          return prevId;
+        }
+        return null;
+      });
+      setEditingObjectId(null);
+    }
+  }, [canvasEngine, isUIPreviewMode]);
+
+  // Redo Handler
   const redo = useCallback(() => {
-    const current = historyRef.current;
-    if (current.future.length === 0) return;
-
-    const next = current.future[0];
-    const newFuture = current.future.slice(1);
-
-    setHistory({
-      past: [...current.past, current.present],
-      present: next,
-      future: newFuture,
-    });
-
-    setSelectedMockObjectIdState((prevId) => {
-      if (prevId && next.some((o) => o.id === prevId)) {
-        return prevId;
-      }
-      return null;
-    });
-    setEditingObjectId(null);
-
-    // Call engine contract for contract fidelity
     canvasEngine.redo();
-  }, [canvasEngine]);
+
+    if (isUIPreviewMode) {
+      const current = historyRef.current;
+      if (current.future.length === 0) return;
+
+      const next = current.future[0];
+      const newFuture = current.future.slice(1);
+
+      setHistory({
+        past: [...current.past, current.present],
+        present: next,
+        future: newFuture,
+      });
+
+      setSelectedMockObjectIdState((prevId) => {
+        if (prevId && next.some((o) => o.id === prevId)) {
+          return prevId;
+        }
+        return null;
+      });
+      setEditingObjectId(null);
+    }
+  }, [canvasEngine, isUIPreviewMode]);
 
   // Collaboration state subscriptions
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connected');
@@ -321,6 +362,90 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
   const [isMinimapOpen, setIsMinimapOpen] = useState<boolean>(true);
   const [isLayersPanelOpen, setIsLayersPanelOpen] = useState<boolean>(true);
+  const [isStickyGalleryOpen, setIsStickyGalleryOpen] = useState<boolean>(false);
+  const [isBrushStudioOpen, setIsBrushStudioOpen] = useState<boolean>(false);
+
+  // Brush Studio & Sticky Template State
+  const [brushSettings, setBrushSettingsState] = useState<BrushSettings>({
+    kind: 'pen',
+    color: '#252525',
+    width: 4,
+    opacity: 1,
+    pressureEnabled: true,
+    highlighterColor: '#FDE047',
+    eraserMode: 'sweep',
+    eraserWidth: 22,
+  });
+
+  const updateBrushSettings = useCallback(
+    (patch: Partial<BrushSettings>) => {
+      setBrushSettingsState((prev) => ({ ...prev, ...patch }));
+      if (canvasEngine.setBrushSettings) {
+        canvasEngine.setBrushSettings(patch);
+      }
+    },
+    [canvasEngine]
+  );
+
+  const [selectedStickyTemplate, setSelectedStickyTemplateState] = useState<string>('sunny');
+  const setSelectedStickyTemplate = useCallback(
+    (template: string) => {
+      setSelectedStickyTemplateState(template);
+      if (canvasEngine.setStickyTemplate) {
+        canvasEngine.setStickyTemplate(template);
+      }
+    },
+    [canvasEngine]
+  );
+
+  const applyTextStyle = useCallback(
+    (style: Partial<TextFormattingSettings>) => {
+      if (canvasEngine.applyTextStyle) {
+        canvasEngine.applyTextStyle(style);
+      }
+    },
+    [canvasEngine]
+  );
+
+  const highlightSelectedText = useCallback(
+    (color?: string) => {
+      if (canvasEngine.highlightSelectedText) {
+        canvasEngine.highlightSelectedText(color);
+      }
+    },
+    [canvasEngine]
+  );
+
+  const highlightWholeText = useCallback(
+    (color?: string) => {
+      if (canvasEngine.highlightWholeText) {
+        canvasEngine.highlightWholeText(color);
+      }
+    },
+    [canvasEngine]
+  );
+
+  const changeStickyTemplate = useCallback(
+    (templateKey: string) => {
+      setSelectedStickyTemplateState(templateKey);
+      if (canvasEngine.changeStickyTemplate) {
+        canvasEngine.changeStickyTemplate(templateKey);
+      }
+    },
+    [canvasEngine]
+  );
+
+  const loadDemoFixtures = useCallback(() => {
+    if (canvasEngine.seedDemoContent) {
+      canvasEngine.seedDemoContent();
+    }
+  }, [canvasEngine]);
+
+  const sendBackwardSelected = useCallback(() => {
+    if (canvasEngine.sendBackwardSelected) {
+      canvasEngine.sendBackwardSelected();
+    }
+  }, [canvasEngine]);
 
   // Simulation settings
   const [simulationSettings, setSimulationSettings] = useState<SimulationSettings>({
@@ -330,18 +455,65 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
     isErrorState: false,
   });
 
-  // Subscribe to engine readiness, zoom & world coordinates events
+  // Subscribe to engine readiness, undo/redo, zoom, world coordinates, objects & selection events
   useEffect(() => {
     const unsubReadiness = canvasEngine.onReadinessChange(setEngineReadiness);
+    const unsubUndoRedo = canvasEngine.onUndoRedoChange(setEngineUndoRedo);
     const unsubZoom = canvasEngine.onZoomChange(setZoomState);
     const unsubCoords = canvasEngine.onCoordinatesChange
       ? canvasEngine.onCoordinatesChange(setPointerCoords)
       : () => {};
+    const unsubObjects = canvasEngine.onObjectsChange
+      ? canvasEngine.onObjectsChange((objects) => {
+          setFabricObjects(objects);
+          setSelectedCanvasObject((prev) => {
+            if (!prev) return null;
+            const updated = objects.find((o) => o.id === prev.id);
+            return updated || prev;
+          });
+        })
+      : () => {};
+    const unsubSelection = canvasEngine.onSelectionChange
+      ? canvasEngine.onSelectionChange((selectedId, selectedObj) => {
+          setSelectedMockObjectIdState(selectedId);
+          setSelectedCanvasObject(selectedObj || null);
+          setHasActiveFabricObject(Boolean(selectedId));
+          if (!selectedId) {
+            setSelectionScreenBounds(null);
+          }
+          if (selectedObj) {
+            setStyleConfig((prev) => ({
+              ...prev,
+              strokeColor: selectedObj.strokeColor || prev.strokeColor,
+              fillColor: selectedObj.fillColor || prev.fillColor,
+              strokeWidth: selectedObj.strokeWidth || prev.strokeWidth,
+              stickyColor: selectedObj.stickyColor || prev.stickyColor,
+              opacity: selectedObj.opacity !== undefined ? selectedObj.opacity : prev.opacity,
+              fontSize: selectedObj.fontSize || prev.fontSize,
+              fontWeight: selectedObj.fontWeight || prev.fontWeight,
+              textAlign: selectedObj.textAlign || prev.textAlign,
+            }));
+          }
+        })
+      : () => {};
+
+    const unsubBounds = canvasEngine.onSelectionBoundsChange
+      ? canvasEngine.onSelectionBoundsChange(setSelectionScreenBounds)
+      : () => {};
+
+    const unsubBrush = canvasEngine.onBrushSettingsChange
+      ? canvasEngine.onBrushSettingsChange(setBrushSettingsState)
+      : () => {};
 
     return () => {
       unsubReadiness();
+      unsubUndoRedo();
       unsubZoom();
       unsubCoords();
+      unsubObjects();
+      unsubSelection();
+      unsubBounds();
+      unsubBrush();
     };
   }, [canvasEngine]);
 
@@ -369,6 +541,7 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       if (tool !== 'select' && tool !== 'pan') {
         setSelectedMockObjectIdState(null);
         setEditingObjectId(null);
+        canvasEngine.selectObject?.(null);
       }
     },
     [canvasEngine]
@@ -387,11 +560,10 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
   // Update style handler (with immediate history commit for selected object)
   const updateStyle = useCallback(
     (newStyle: Partial<StyleConfig>) => {
-      setStyleConfig((prev) => {
-        const updated = { ...prev, ...newStyle };
-        canvasEngine.setStyle(updated);
-        return updated;
-      });
+      setStyleConfig((prev) => ({ ...prev, ...newStyle }));
+      if (canvasEngine?.setStyle) {
+        canvasEngine.setStyle(newStyle);
+      }
 
       // If a mock object is selected in Preview Mode, immediately apply the changes and commit to history
       if (selectedMockObjectId) {
@@ -424,12 +596,15 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
     [canvasEngine, selectedMockObjectId, commitSnapshot]
   );
 
-  // Mock object selection handler - preserves and populates object's own styles
+  // Object selection handler - selects on Fabric engine and updates styles
   const setSelectedMockObjectId = useCallback(
     (id: string | null) => {
       setSelectedMockObjectIdState(id);
+      canvasEngine.selectObject?.(id);
       if (id) {
-        const found = historyRef.current.present.find((obj) => obj.id === id);
+        const currentList = isUIPreviewMode ? historyRef.current.present : (fabricObjects.length > 0 ? fabricObjects : historyRef.current.present);
+        const found = currentList.find((obj) => obj.id === id);
+        setSelectedCanvasObject(found || null);
         if (found) {
           setStyleConfig((prev) => ({
             ...prev,
@@ -444,10 +619,11 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
           }));
         }
       } else {
+        setSelectedCanvasObject(null);
         setEditingObjectId(null);
       }
     },
-    []
+    [canvasEngine, isUIPreviewMode, fabricObjects]
   );
 
   // Text updating with history recording
@@ -544,8 +720,8 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
             y: posY,
             width: 140,
             height: 140,
-            strokeColor: styleConfig.strokeColor || '#6366f1',
-            fillColor: styleConfig.fillColor || '#eef2ff',
+            strokeColor: styleConfig.strokeColor || '#F26B5B',
+            fillColor: styleConfig.fillColor || '#FFF9F0',
             strokeWidth: styleConfig.strokeWidth || 2,
             text: '',
             ...customProps,
@@ -559,8 +735,8 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
             y: posY,
             width: 180,
             height: 110,
-            strokeColor: styleConfig.strokeColor || '#6366f1',
-            fillColor: styleConfig.fillColor || '#eef2ff',
+            strokeColor: styleConfig.strokeColor || '#F26B5B',
+            fillColor: styleConfig.fillColor || '#FFF9F0',
             strokeWidth: styleConfig.strokeWidth || 2,
             text: '',
             ...customProps,
@@ -635,9 +811,9 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
             y: posY,
             width: 180,
             height: 24,
-            strokeColor: styleConfig.strokeColor || '#6366f1',
+            strokeColor: styleConfig.strokeColor || '#F26B5B',
             strokeWidth: styleConfig.strokeWidth || 2,
-            fillColor: styleConfig.strokeColor || '#6366f1',
+            fillColor: styleConfig.strokeColor || '#F26B5B',
             text: '',
             ...customProps,
           };
@@ -650,7 +826,7 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
             y: posY,
             width: 260,
             height: 48,
-            strokeColor: styleConfig.strokeColor || '#1e293b',
+            strokeColor: styleConfig.strokeColor || '#302633',
             fillColor: 'transparent',
             strokeWidth: 1,
             fontSize: styleConfig.fontSize || 16,
@@ -666,7 +842,7 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
             y: posY,
             width: customProps?.width || 120,
             height: customProps?.height || 60,
-            strokeColor: styleConfig.strokeColor || '#6366f1',
+            strokeColor: styleConfig.strokeColor || '#F26B5B',
             strokeWidth: styleConfig.brushSize || styleConfig.strokeWidth || 3,
             fillColor: 'transparent',
             text: '',
@@ -847,26 +1023,40 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
 
   const updateObjectProperties = useCallback(
     (id: string, updates: Partial<CanvasObject>) => {
-      const currentObjects = historyRef.current.present;
-      const target = currentObjects.find((o) => o.id === id);
-      if (!target) return;
-      const newObjects = currentObjects.map((o) =>
-        o.id === id ? { ...o, ...updates } : o
-      );
-      commitSnapshot(newObjects, id);
+      if (canvasEngine.updateObjectProperties) {
+        canvasEngine.updateObjectProperties(id, updates);
+      } else {
+        canvasEngine.setStyle(updates);
+      }
+      if (isUIPreviewMode) {
+        const currentObjects = historyRef.current.present;
+        const target = currentObjects.find((o) => o.id === id);
+        if (!target) return;
+        const newObjects = currentObjects.map((o) =>
+          o.id === id ? { ...o, ...updates } : o
+        );
+        commitSnapshot(newObjects, id);
+      }
     },
-    [commitSnapshot]
+    [canvasEngine, commitSnapshot, isUIPreviewMode]
   );
 
   const toggleObjectVisibility = useCallback(
     (id: string) => {
-      const currentObjects = historyRef.current.present;
-      const newObjects = currentObjects.map((o) =>
-        o.id === id ? { ...o, visible: o.visible === false ? true : false } : o
-      );
-      commitSnapshot(newObjects, selectedMockObjectId);
+      const currentList = isUIPreviewMode ? historyRef.current.present : (fabricObjects.length > 0 ? fabricObjects : historyRef.current.present);
+      const target = currentList.find((o) => o.id === id);
+      const nextVisible = target ? target.visible === false : false;
+      canvasEngine.setObjectVisibility?.(id, nextVisible);
+
+      if (isUIPreviewMode) {
+        const currentObjects = historyRef.current.present;
+        const newObjects = currentObjects.map((o) =>
+          o.id === id ? { ...o, visible: o.visible === false ? true : false } : o
+        );
+        commitSnapshot(newObjects, selectedMockObjectId);
+      }
     },
-    [commitSnapshot, selectedMockObjectId]
+    [canvasEngine, isUIPreviewMode, fabricObjects, commitSnapshot, selectedMockObjectId]
   );
 
   // Simulation controls
@@ -959,9 +1149,25 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       deleteSelected,
       duplicateSelected,
       bringForwardSelected,
+      sendBackwardSelected,
+      brushSettings,
+      updateBrushSettings,
+      selectedStickyTemplate,
+      setSelectedStickyTemplate,
+      isStickyGalleryOpen,
+      setIsStickyGalleryOpen,
+      isBrushStudioOpen,
+      setIsBrushStudioOpen,
+      applyTextStyle,
+      highlightSelectedText,
+      highlightWholeText,
+      changeStickyTemplate,
+      loadDemoFixtures,
       isUIPreviewMode,
       toggleUIPreviewMode,
+      selectedCanvasObject,
       selectedMockObjectId,
+      hasActiveObject: Boolean(selectedCanvasObject) || Boolean(selectedMockObjectId) || hasActiveFabricObject,
       setSelectedMockObjectId,
       mockObjects,
       createMockObject,
@@ -995,6 +1201,7 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       toggleEmptyBoard,
       toggleErrorState,
       exportCanvas,
+      selectionScreenBounds,
       canvasEngine,
       collabClient,
     }),
@@ -1028,9 +1235,25 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       deleteSelected,
       duplicateSelected,
       bringForwardSelected,
+      sendBackwardSelected,
+      brushSettings,
+      updateBrushSettings,
+      selectedStickyTemplate,
+      setSelectedStickyTemplate,
+      isStickyGalleryOpen,
+      setIsStickyGalleryOpen,
+      isBrushStudioOpen,
+      setIsBrushStudioOpen,
+      applyTextStyle,
+      highlightSelectedText,
+      highlightWholeText,
+      changeStickyTemplate,
+      loadDemoFixtures,
       isUIPreviewMode,
       toggleUIPreviewMode,
+      selectedCanvasObject,
       selectedMockObjectId,
+      hasActiveFabricObject,
       setSelectedMockObjectId,
       mockObjects,
       createMockObject,

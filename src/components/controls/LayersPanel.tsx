@@ -23,10 +23,10 @@ export const LayersPanel: React.FC = () => {
     isLayersPanelOpen,
     toggleLayersPanel,
     mockObjects,
+    selectedCanvasObject,
     selectedMockObjectId,
     setSelectedMockObjectId,
     styleConfig,
-    updateStyle,
     updateObjectProperties,
     toggleObjectVisibility,
   } = useWorkspace();
@@ -44,9 +44,9 @@ export const LayersPanel: React.FC = () => {
     setCollapsedCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
   };
 
-  const selectedObject = selectedMockObjectId
-    ? mockObjects.find((o) => o.id === selectedMockObjectId)
-    : mockObjects.find((o) => o.type === 'rectangle') || null;
+  const selectedObject = selectedCanvasObject || (selectedMockObjectId
+    ? mockObjects.find((o) => o.id === selectedMockObjectId) || null
+    : null);
 
   // Categories partition
   const stickyNotes = mockObjects.filter((o) => o.type === 'sticky');
@@ -70,18 +70,18 @@ export const LayersPanel: React.FC = () => {
   const getShapeIcon = (type: string) => {
     switch (type) {
       case 'rounded-rectangle':
-        return <Square className="w-3.5 h-3.5 text-purple-500 rounded-xs" />;
+        return <Square className="w-3.5 h-3.5 text-[#6D3B67] rounded-xs" />;
       case 'circle':
-        return <Circle className="w-3.5 h-3.5 text-indigo-500" />;
+        return <Circle className="w-3.5 h-3.5 text-[#6D3B67]" />;
       case 'ellipse':
-        return <Circle className="w-3.5 h-3.5 text-indigo-500 scale-x-125" />;
+        return <Circle className="w-3.5 h-3.5 text-[#6D3B67] scale-x-125" />;
       case 'diamond':
-        return <Diamond className="w-3.5 h-3.5 text-purple-500" />;
+        return <Diamond className="w-3.5 h-3.5 text-[#6D3B67]" />;
       case 'triangle':
-        return <Triangle className="w-3.5 h-3.5 text-purple-500" />;
+        return <Triangle className="w-3.5 h-3.5 text-[#6D3B67]" />;
       case 'rectangle':
       default:
-        return <Square className="w-3.5 h-3.5 text-purple-500" />;
+        return <Square className="w-3.5 h-3.5 text-[#6D3B67]" />;
     }
   };
 
@@ -96,7 +96,7 @@ export const LayersPanel: React.FC = () => {
     }
     setRadii(nextRadii);
     if (selectedObject) {
-      updateObjectProperties(selectedObject.id, { borderRadius: nextRadii });
+      updateObjectProperties(selectedObject.id, { borderRadius: nextRadii[0] });
     }
   };
 
@@ -110,30 +110,30 @@ export const LayersPanel: React.FC = () => {
 
   return (
     <aside
-      className="fixed top-12 bottom-0 right-0 w-72 bg-white border-l border-slate-200 z-20 flex flex-col justify-between select-none shadow-xs"
+      className="fixed top-12 bottom-0 right-0 w-72 bg-white border-l border-[#EFE5D8] z-20 flex flex-col justify-between select-none shadow-xs text-[#302633]"
       aria-label="Right sidebar for layers and properties"
     >
       {/* 1. TOP SECTION: TABS ("Layers" | "Properties") */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Tab Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 px-3 pt-2">
+        <div className="flex items-center justify-between border-b border-[#EFE5D8] px-3 pt-2">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setActiveTab('layers')}
-              className={`pb-2 text-xs font-semibold tracking-tight transition border-b-2 ${
+              className={`pb-2 text-xs font-semibold tracking-tight transition border-b-2 cursor-pointer ${
                 activeTab === 'layers'
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
+                  ? 'border-[#F26B5B] text-[#F26B5B]'
+                  : 'border-transparent text-[#302633]/60 hover:text-[#302633]'
               }`}
             >
               Layers
             </button>
             <button
               onClick={() => setActiveTab('properties')}
-              className={`pb-2 text-xs font-semibold tracking-tight transition border-b-2 ${
+              className={`pb-2 text-xs font-semibold tracking-tight transition border-b-2 cursor-pointer ${
                 activeTab === 'properties'
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
+                  ? 'border-[#F26B5B] text-[#F26B5B]'
+                  : 'border-transparent text-[#302633]/60 hover:text-[#302633]'
               }`}
             >
               Properties
@@ -141,7 +141,7 @@ export const LayersPanel: React.FC = () => {
           </div>
           <button
             onClick={toggleLayersPanel}
-            className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition -mt-2"
+            className="p-1 rounded text-[#302633]/40 hover:text-[#302633] hover:bg-[#FFF9F0] transition -mt-2 cursor-pointer"
             title="Close sidebar"
           >
             <X className="w-3.5 h-3.5" />
@@ -182,7 +182,7 @@ export const LayersPanel: React.FC = () => {
                         onClick={() => setSelectedMockObjectId(obj.id)}
                         className={`flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer transition ${
                           isSelected
-                            ? 'bg-indigo-50 text-indigo-700 font-medium'
+                            ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
                             : 'text-slate-700 hover:bg-slate-100'
                         }`}
                       >
@@ -228,7 +228,7 @@ export const LayersPanel: React.FC = () => {
                   ) : (
                     <ChevronDown className="w-3 h-3 text-slate-400" />
                   )}
-                  <Square className="w-3.5 h-3.5 text-indigo-500" />
+                  <Square className="w-3.5 h-3.5 text-[#6D3B67]" />
                   <span>Shapes ({shapes.length})</span>
                 </div>
               </button>
@@ -251,7 +251,7 @@ export const LayersPanel: React.FC = () => {
                         onClick={() => setSelectedMockObjectId(obj.id)}
                         className={`flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer transition ${
                           isSelected
-                            ? 'bg-indigo-50 text-indigo-700 font-medium'
+                            ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
                             : 'text-slate-700 hover:bg-slate-100'
                         }`}
                       >
@@ -308,7 +308,7 @@ export const LayersPanel: React.FC = () => {
                         onClick={() => setSelectedMockObjectId(obj.id)}
                         className={`flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer transition ${
                           isSelected
-                            ? 'bg-indigo-50 text-indigo-700 font-medium'
+                            ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
                             : 'text-slate-700 hover:bg-slate-100'
                         }`}
                       >
@@ -351,7 +351,7 @@ export const LayersPanel: React.FC = () => {
                   ) : (
                     <ChevronDown className="w-3 h-3 text-slate-400" />
                   )}
-                  <PenTool className="w-3.5 h-3.5 text-indigo-500" />
+                  <PenTool className="w-3.5 h-3.5 text-[#F26B5B]" />
                   <span>Drawings ({drawings.length})</span>
                 </div>
               </button>
@@ -367,7 +367,7 @@ export const LayersPanel: React.FC = () => {
                         onClick={() => setSelectedMockObjectId(obj.id)}
                         className={`flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer transition ${
                           isSelected
-                            ? 'bg-indigo-50 text-indigo-700 font-medium'
+                            ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
                             : 'text-slate-700 hover:bg-slate-100'
                         }`}
                       >
@@ -410,7 +410,7 @@ export const LayersPanel: React.FC = () => {
                   ) : (
                     <ChevronDown className="w-3 h-3 text-slate-400" />
                   )}
-                  <MoveRight className="w-3.5 h-3.5 text-indigo-500" />
+                  <MoveRight className="w-3.5 h-3.5 text-[#F26B5B]" />
                   <span>Arrows ({arrows.length})</span>
                 </div>
               </button>
@@ -428,7 +428,7 @@ export const LayersPanel: React.FC = () => {
                         onClick={() => setSelectedMockObjectId(obj.id)}
                         className={`flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer transition ${
                           isSelected
-                            ? 'bg-indigo-50 text-indigo-700 font-medium'
+                            ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
                             : 'text-slate-700 hover:bg-slate-100'
                         }`}
                       >
@@ -481,188 +481,366 @@ export const LayersPanel: React.FC = () => {
         )}
       </div>
 
-      {/* 2. BOTTOM SECTION: "Selected: Rectangle" INSPECTOR */}
-      <div className="border-t border-slate-200 bg-white p-3 space-y-3 shadow-xs">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-            <Square className="w-3.5 h-3.5 text-indigo-600" />
-            <span>
-              Selected:{' '}
-              {selectedObject
-                ? selectedObject.type.charAt(0).toUpperCase() +
-                  selectedObject.type.slice(1)
-                : 'Rectangle'}
+      {/* 2. BOTTOM SECTION: OBJECT PROPERTIES INSPECTOR */}
+      {selectedObject ? (
+        <div className="border-t border-slate-200 bg-white p-3 space-y-3 shadow-xs max-h-72 overflow-y-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+              {getShapeIcon(selectedObject.type)}
+              <span>
+                Selected:{' '}
+                {selectedObject.type.charAt(0).toUpperCase() +
+                  selectedObject.type.slice(1)}
+              </span>
+            </div>
+            <span className="text-[10px] font-mono text-slate-400">
+              {selectedObject.id}
             </span>
           </div>
-          <span className="text-[10px] font-mono text-slate-400">
-            {selectedObject ? selectedObject.id.slice(0, 11) : 'mock-rect-1'}
-          </span>
-        </div>
 
-        {/* Fill Control */}
-        <div className="space-y-1">
-          <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Fill
-          </label>
-          <div className="flex items-center gap-2">
-            <div
-              className="w-6 h-6 rounded border border-slate-300 shadow-2xs flex-shrink-0"
-              style={{
-                backgroundColor:
-                  currentFill === 'transparent' ? '#FFFFFF' : currentFill,
-              }}
-            />
-            <input
-              type="text"
-              value={currentFill.toUpperCase()}
-              onChange={(e) => {
-                const hex = e.target.value;
-                updateStyle({ fillColor: hex });
-                if (selectedObject) {
-                  updateObjectProperties(selectedObject.id, { fillColor: hex });
-                }
-              }}
-              className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs font-mono text-slate-800 focus:bg-white focus:border-indigo-500 outline-none"
-            />
-            <select
-              value={`${currentOpacity}%`}
-              onChange={(e) => {
-                const op = parseInt(e.target.value, 10) / 100;
-                updateStyle({ opacity: op });
-                if (selectedObject) {
-                  updateObjectProperties(selectedObject.id, { opacity: op });
-                }
-              }}
-              className="w-16 bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-xs text-slate-700 outline-none cursor-pointer"
-            >
-              <option value="100%">100%</option>
-              <option value="75%">75%</option>
-              <option value="50%">50%</option>
-              <option value="25%">25%</option>
-            </select>
-          </div>
-        </div>
+          {/* A. STICKY NOTE INSPECTOR */}
+          {selectedObject.type === 'sticky' && (
+            <div className="space-y-2.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-400 font-semibold uppercase text-[10px]">Template</span>
+                <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-medium text-[11px] capitalize">
+                  {selectedObject.template || 'Sunny Fold'}
+                </span>
+              </div>
 
-        {/* Stroke Control */}
-        <div className="space-y-1">
-          <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Stroke
-          </label>
-          <div className="flex items-center gap-2">
-            <div
-              className="w-6 h-6 rounded border border-slate-300 shadow-2xs flex-shrink-0"
-              style={{ backgroundColor: currentStroke }}
-            />
-            <input
-              type="text"
-              value={currentStroke.toUpperCase()}
-              onChange={(e) => {
-                const hex = e.target.value;
-                updateStyle({ strokeColor: hex });
-                if (selectedObject) {
-                  updateObjectProperties(selectedObject.id, { strokeColor: hex });
-                }
-              }}
-              className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs font-mono text-slate-800 focus:bg-white focus:border-indigo-500 outline-none"
-            />
-            <select
-              value={`${currentWidth}px`}
-              onChange={(e) => {
-                const w = parseInt(e.target.value, 10);
-                updateStyle({ strokeWidth: w });
-                if (selectedObject) {
-                  updateObjectProperties(selectedObject.id, { strokeWidth: w });
-                }
-              }}
-              className="w-16 bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-xs text-slate-700 outline-none cursor-pointer"
-            >
-              <option value="1px">1px</option>
-              <option value="2px">2px</option>
-              <option value="4px">4px</option>
-              <option value="8px">8px</option>
-            </select>
-          </div>
-        </div>
+              {/* Text / Foreground Color */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Text Color & Opacity
+                </label>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-6 h-6 rounded border border-slate-300 shadow-2xs flex-shrink-0"
+                    style={{ backgroundColor: selectedObject.fillColor || '#252525' }}
+                  />
+                  <input
+                    type="text"
+                    value={(selectedObject.fillColor || '#252525').toUpperCase()}
+                    onChange={(e) => {
+                      const hex = e.target.value;
+                      updateObjectProperties(selectedObject.id, { fillColor: hex });
+                    }}
+                    className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs font-mono text-slate-800 focus:bg-white focus:border-[#F26B5B] outline-none"
+                  />
+                  <select
+                    value={`${currentOpacity}%`}
+                    onChange={(e) => {
+                      const op = parseInt(e.target.value, 10) / 100;
+                      updateObjectProperties(selectedObject.id, { opacity: op });
+                    }}
+                    className="w-16 bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-xs text-slate-700 outline-none cursor-pointer"
+                  >
+                    <option value="100%">100%</option>
+                    <option value="75%">75%</option>
+                    <option value="50%">50%</option>
+                    <option value="25%">25%</option>
+                  </select>
+                </div>
+              </div>
 
-        {/* Border Radius Control (2x2 Grid + Center Link Icon) */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between">
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              Border Radius
-            </label>
-            <button
-              onClick={() => setIsRadiusLinked(!isRadiusLinked)}
-              className="p-0.5 text-slate-400 hover:text-indigo-600 transition"
-              title={isRadiusLinked ? 'Corners linked' : 'Corners unlinked'}
-            >
-              {isRadiusLinked ? (
-                <Link2 className="w-3.5 h-3.5 text-indigo-600" />
-              ) : (
-                <Link2Off className="w-3.5 h-3.5" />
-              )}
-            </button>
-          </div>
-
-          <div className="relative grid grid-cols-2 gap-2 pt-0.5">
-            {/* Top-Left */}
-            <div className="flex items-center bg-slate-50 border border-slate-200 rounded px-2 py-1">
-              <span className="text-[10px] text-slate-400 mr-1.5">TL</span>
-              <input
-                type="number"
-                min="0"
-                max="64"
-                value={radii[0]}
-                onChange={(e) => handleRadiusChange(0, parseInt(e.target.value, 10))}
-                className="w-full bg-transparent text-xs text-slate-800 outline-none font-mono"
-              />
-              <span className="text-[10px] text-slate-400">px</span>
+              {/* Note Content Textarea */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Note Content (Line 1 = Header)
+                </label>
+                <textarea
+                  value={selectedObject.text || ''}
+                  rows={3}
+                  onChange={(e) => {
+                    updateObjectProperties(selectedObject.id, { text: e.target.value });
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-xs text-slate-800 focus:bg-white focus:border-[#F26B5B] outline-none resize-none leading-snug"
+                />
+              </div>
             </div>
+          )}
 
-            {/* Top-Right */}
-            <div className="flex items-center bg-slate-50 border border-slate-200 rounded px-2 py-1">
-              <span className="text-[10px] text-slate-400 mr-1.5">TR</span>
-              <input
-                type="number"
-                min="0"
-                max="64"
-                value={radii[1]}
-                onChange={(e) => handleRadiusChange(1, parseInt(e.target.value, 10))}
-                className="w-full bg-transparent text-xs text-slate-800 outline-none font-mono"
-              />
-              <span className="text-[10px] text-slate-400">px</span>
-            </div>
+          {/* B. STANDALONE TEXT INSPECTOR */}
+          {selectedObject.type === 'text' && (
+            <div className="space-y-2.5">
+              {/* Text Content */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Text Content
+                </label>
+                <textarea
+                  value={selectedObject.text || ''}
+                  rows={2}
+                  onChange={(e) => {
+                    updateObjectProperties(selectedObject.id, { text: e.target.value });
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-xs text-slate-800 focus:bg-white focus:border-[#F26B5B] outline-none resize-none"
+                />
+              </div>
 
-            {/* Bottom-Left */}
-            <div className="flex items-center bg-slate-50 border border-slate-200 rounded px-2 py-1">
-              <span className="text-[10px] text-slate-400 mr-1.5">BL</span>
-              <input
-                type="number"
-                min="0"
-                max="64"
-                value={radii[2]}
-                onChange={(e) => handleRadiusChange(2, parseInt(e.target.value, 10))}
-                className="w-full bg-transparent text-xs text-slate-800 outline-none font-mono"
-              />
-              <span className="text-[10px] text-slate-400">px</span>
+              {/* Text Color & Opacity */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Color & Opacity
+                </label>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-6 h-6 rounded border border-slate-300 shadow-2xs flex-shrink-0"
+                    style={{ backgroundColor: selectedObject.fillColor || '#1E293B' }}
+                  />
+                  <input
+                    type="text"
+                    value={(selectedObject.fillColor || '#1E293B').toUpperCase()}
+                    onChange={(e) => {
+                      const hex = e.target.value;
+                      updateObjectProperties(selectedObject.id, { fillColor: hex });
+                    }}
+                    className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs font-mono text-slate-800 focus:bg-white focus:border-[#F26B5B] outline-none"
+                  />
+                  <select
+                    value={`${currentOpacity}%`}
+                    onChange={(e) => {
+                      const op = parseInt(e.target.value, 10) / 100;
+                      updateObjectProperties(selectedObject.id, { opacity: op });
+                    }}
+                    className="w-16 bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-xs text-slate-700 outline-none cursor-pointer"
+                  >
+                    <option value="100%">100%</option>
+                    <option value="75%">75%</option>
+                    <option value="50%">50%</option>
+                    <option value="25%">25%</option>
+                  </select>
+                </div>
+              </div>
             </div>
+          )}
 
-            {/* Bottom-Right */}
-            <div className="flex items-center bg-slate-50 border border-slate-200 rounded px-2 py-1">
-              <span className="text-[10px] text-slate-400 mr-1.5">BR</span>
-              <input
-                type="number"
-                min="0"
-                max="64"
-                value={radii[3]}
-                onChange={(e) => handleRadiusChange(3, parseInt(e.target.value, 10))}
-                className="w-full bg-transparent text-xs text-slate-800 outline-none font-mono"
-              />
-              <span className="text-[10px] text-slate-400">px</span>
+          {/* C. DRAWINGS INSPECTOR */}
+          {(selectedObject.type === 'brush' || selectedObject.type === 'highlighter') && (
+            <div className="space-y-2.5">
+              {/* Stroke Color & Width */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Stroke & Width
+                </label>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-6 h-6 rounded border border-slate-300 shadow-2xs flex-shrink-0"
+                    style={{ backgroundColor: currentStroke }}
+                  />
+                  <input
+                    type="text"
+                    value={currentStroke.toUpperCase()}
+                    onChange={(e) => {
+                      const hex = e.target.value;
+                      updateObjectProperties(selectedObject.id, { strokeColor: hex });
+                    }}
+                    className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs font-mono text-slate-800 focus:bg-white focus:border-[#F26B5B] outline-none"
+                  />
+                  <select
+                    value={`${currentWidth}px`}
+                    onChange={(e) => {
+                      const w = parseInt(e.target.value, 10);
+                      updateObjectProperties(selectedObject.id, { strokeWidth: w });
+                    }}
+                    className="w-16 bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-xs text-slate-700 outline-none cursor-pointer"
+                  >
+                    <option value="1px">1px</option>
+                    <option value="2px">2px</option>
+                    <option value="4px">4px</option>
+                    <option value="8px">8px</option>
+                    <option value="12px">12px</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Opacity */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Opacity
+                </label>
+                <select
+                  value={`${currentOpacity}%`}
+                  onChange={(e) => {
+                    const op = parseInt(e.target.value, 10) / 100;
+                    updateObjectProperties(selectedObject.id, { opacity: op });
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs text-slate-700 outline-none cursor-pointer"
+                >
+                  <option value="100%">100%</option>
+                  <option value="75%">75%</option>
+                  <option value="50%">50%</option>
+                  <option value="25%">25%</option>
+                </select>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* D. SHAPES INSPECTOR */}
+          {selectedObject.type !== 'sticky' &&
+            selectedObject.type !== 'text' &&
+            selectedObject.type !== 'brush' &&
+            selectedObject.type !== 'highlighter' && (
+              <div className="space-y-2.5">
+                {/* Fill Control (if not line/arrow) */}
+                {selectedObject.type !== 'line' && selectedObject.type !== 'arrow' && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      Fill & Opacity
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-6 h-6 rounded border border-slate-300 shadow-2xs flex-shrink-0"
+                        style={{
+                          backgroundColor:
+                            currentFill === 'transparent' ? '#FFFFFF' : currentFill,
+                        }}
+                      />
+                      <input
+                        type="text"
+                        value={currentFill.toUpperCase()}
+                        onChange={(e) => {
+                          const hex = e.target.value;
+                          updateObjectProperties(selectedObject.id, { fillColor: hex });
+                        }}
+                        className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs font-mono text-slate-800 focus:bg-white focus:border-[#F26B5B] outline-none"
+                      />
+                      <select
+                        value={`${currentOpacity}%`}
+                        onChange={(e) => {
+                          const op = parseInt(e.target.value, 10) / 100;
+                          updateObjectProperties(selectedObject.id, { opacity: op });
+                        }}
+                        className="w-16 bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-xs text-slate-700 outline-none cursor-pointer"
+                      >
+                        <option value="100%">100%</option>
+                        <option value="75%">75%</option>
+                        <option value="50%">50%</option>
+                        <option value="25%">25%</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Stroke Control */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    Stroke & Width
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-6 h-6 rounded border border-slate-300 shadow-2xs flex-shrink-0"
+                      style={{ backgroundColor: currentStroke }}
+                    />
+                    <input
+                      type="text"
+                      value={currentStroke.toUpperCase()}
+                      onChange={(e) => {
+                        const hex = e.target.value;
+                        updateObjectProperties(selectedObject.id, { strokeColor: hex });
+                      }}
+                      className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs font-mono text-slate-800 focus:bg-white focus:border-[#F26B5B] outline-none"
+                    />
+                    <select
+                      value={`${currentWidth}px`}
+                      onChange={(e) => {
+                        const w = parseInt(e.target.value, 10);
+                        updateObjectProperties(selectedObject.id, { strokeWidth: w });
+                      }}
+                      className="w-16 bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-xs text-slate-700 outline-none cursor-pointer"
+                    >
+                      <option value="1px">1px</option>
+                      <option value="2px">2px</option>
+                      <option value="4px">4px</option>
+                      <option value="8px">8px</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Border Radius Control (for rect and rounded-rect) */}
+                {(selectedObject.type === 'rectangle' || selectedObject.type === 'rounded-rectangle') && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                        Border Radius
+                      </label>
+                      <button
+                        onClick={() => setIsRadiusLinked(!isRadiusLinked)}
+                        className="p-0.5 text-[#302633]/40 hover:text-[#F26B5B] transition cursor-pointer"
+                        title={isRadiusLinked ? 'Corners linked' : 'Corners unlinked'}
+                      >
+                        {isRadiusLinked ? (
+                          <Link2 className="w-3.5 h-3.5 text-[#F26B5B]" />
+                        ) : (
+                          <Link2Off className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="relative grid grid-cols-2 gap-2 pt-0.5">
+                      <div className="flex items-center bg-slate-50 border border-slate-200 rounded px-2 py-1">
+                        <span className="text-[10px] text-slate-400 mr-1.5">TL</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="64"
+                          value={radii[0]}
+                          onChange={(e) => handleRadiusChange(0, parseInt(e.target.value, 10))}
+                          className="w-full bg-transparent text-xs text-slate-800 outline-none font-mono"
+                        />
+                        <span className="text-[10px] text-slate-400">px</span>
+                      </div>
+                      <div className="flex items-center bg-slate-50 border border-slate-200 rounded px-2 py-1">
+                        <span className="text-[10px] text-slate-400 mr-1.5">TR</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="64"
+                          value={radii[1]}
+                          onChange={(e) => handleRadiusChange(1, parseInt(e.target.value, 10))}
+                          className="w-full bg-transparent text-xs text-slate-800 outline-none font-mono"
+                        />
+                        <span className="text-[10px] text-slate-400">px</span>
+                      </div>
+                      <div className="flex items-center bg-slate-50 border border-slate-200 rounded px-2 py-1">
+                        <span className="text-[10px] text-slate-400 mr-1.5">BL</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="64"
+                          value={radii[2]}
+                          onChange={(e) => handleRadiusChange(2, parseInt(e.target.value, 10))}
+                          className="w-full bg-transparent text-xs text-slate-800 outline-none font-mono"
+                        />
+                        <span className="text-[10px] text-slate-400">px</span>
+                      </div>
+                      <div className="flex items-center bg-slate-50 border border-slate-200 rounded px-2 py-1">
+                        <span className="text-[10px] text-slate-400 mr-1.5">BR</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="64"
+                          value={radii[3]}
+                          onChange={(e) => handleRadiusChange(3, parseInt(e.target.value, 10))}
+                          className="w-full bg-transparent text-xs text-slate-800 outline-none font-mono"
+                        />
+                        <span className="text-[10px] text-slate-400">px</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
         </div>
-      </div>
+      ) : (
+        <div className="border-t border-slate-200 bg-slate-50/70 p-4 text-center">
+          <p className="text-xs font-semibold text-slate-500">No Object Selected</p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Click any canvas element or layer to inspect and edit properties.
+          </p>
+        </div>
+      )}
     </aside>
   );
 };

@@ -62,7 +62,7 @@ const WorkspaceShell: React.FC = () => {
   });
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#F8FAFC] font-sans text-slate-800 select-none">
+    <div className="relative w-screen h-screen overflow-hidden bg-[#FAF8F5] font-sans text-[#302633] select-none">
       {/* 1. Canvas Host Container (Member 2 Fabric.js mount point) */}
       <CanvasMountPlaceholder />
 
