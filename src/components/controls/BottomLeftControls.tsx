@@ -11,7 +11,10 @@ export const BottomLeftControls: React.FC = () => {
     zoomIn,
     zoomOut,
     resetZoom,
+    activeNav,
   } = useWorkspace();
+
+  const isWidePanelOpen = activeNav === 'elements' || activeNav === 'text' || activeNav === 'projects';
 
   const [isZoomMenuOpen, setIsZoomMenuOpen] = useState(false);
   const zoomMenuRef = useRef<HTMLDivElement>(null);
@@ -34,7 +37,9 @@ export const BottomLeftControls: React.FC = () => {
 
   return (
     <div
-      className="fixed bottom-4 left-56 z-20 flex items-center select-none"
+      className={`fixed bottom-4 ${
+        isWidePanelOpen ? 'left-[404px]' : 'left-24'
+      } z-20 flex items-center select-none transition-all duration-200`}
       aria-label="Undo, redo, and zoom controls"
     >
       <div className="bg-white border border-[#EFE5D8] rounded-full shadow-md px-2.5 py-1.5 flex items-center gap-1.5 text-[#302633]">

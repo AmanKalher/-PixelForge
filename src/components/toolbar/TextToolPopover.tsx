@@ -5,9 +5,14 @@ import { TextFormattingToolbar } from './TextFormattingToolbar';
 interface TextToolPopoverProps {
   isOpen: boolean;
   onClose: () => void;
+  placement?: 'bottom' | 'right';
 }
 
-export const TextToolPopover: React.FC<TextToolPopoverProps> = ({ isOpen, onClose }) => {
+export const TextToolPopover: React.FC<TextToolPopoverProps> = ({
+  isOpen,
+  onClose,
+  placement = 'right',
+}) => {
   const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,7 +32,11 @@ export const TextToolPopover: React.FC<TextToolPopoverProps> = ({ isOpen, onClos
   return (
     <div
       ref={popoverRef}
-      className="absolute top-12 left-1/2 -translate-x-1/2 w-max max-w-[94vw] bg-white border border-[#EFE5D8] rounded-2xl shadow-2xl p-4 z-50 text-[#302633] animate-in fade-in zoom-in-95 duration-150"
+      className={`absolute ${
+        placement === 'right'
+          ? 'left-full top-1/2 -translate-y-1/2 ml-3'
+          : 'top-12 left-1/2 -translate-x-1/2'
+      } w-max max-w-[calc(100vw-140px)] bg-white border border-[#EFE5D8] rounded-2xl shadow-2xl p-4 z-50 text-[#302633] animate-in fade-in zoom-in-95 duration-150 max-h-[88vh] overflow-y-auto`}
       role="dialog"
       aria-label="Text Settings"
     >

@@ -110,7 +110,7 @@ export const LayersPanel: React.FC = () => {
 
   return (
     <aside
-      className="fixed top-12 bottom-0 right-0 w-72 bg-white border-l border-[#EFE5D8] z-20 flex flex-col justify-between select-none shadow-xs text-[#302633]"
+      className="fixed top-[76px] bottom-0 right-0 w-72 bg-white border-l border-[#EFE5D8] z-20 flex flex-col justify-between select-none shadow-xs text-[#302633]"
       aria-label="Right sidebar for layers and properties"
     >
       {/* 1. TOP SECTION: TABS ("Layers" | "Properties") */}

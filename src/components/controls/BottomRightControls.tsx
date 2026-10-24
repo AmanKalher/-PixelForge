@@ -15,6 +15,7 @@ export const BottomRightControls: React.FC = () => {
     duplicateSelected,
     hasActiveObject,
     isMinimapOpen,
+    isLayersPanelOpen,
     zoom,
     pan,
     mockObjects,
@@ -107,7 +108,9 @@ export const BottomRightControls: React.FC = () => {
       {/* 2. Bottom-Right: Clean, Compact White-Framed Minimap Card with Explicit Label */}
       {isMinimapOpen && (
         <div
-          className="fixed bottom-4 right-76 z-20 w-48 bg-white border border-[#EFE5D8] rounded-2xl shadow-md p-2.5 select-none animate-in fade-in zoom-in-95 duration-100"
+          className={`fixed bottom-6 ${
+            isLayersPanelOpen ? 'right-[312px]' : 'right-6'
+          } z-20 w-48 bg-white border border-[#EFE5D8] rounded-2xl shadow-md p-2.5 select-none transition-all duration-200 animate-in fade-in zoom-in-95 duration-100`}
           aria-label="Canvas Minimap"
         >
           {/* Visible "Minimap" Label */}

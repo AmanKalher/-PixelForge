@@ -13,6 +13,7 @@
 
 import {
   ToolType,
+  ShapeSubtype,
   CanvasObject,
   StyleConfig,
   BrushSettings,
@@ -208,9 +209,19 @@ export interface CanvasEngineContract {
   getStickyTemplate?(): string;
 
   /**
+   * Creates a text box at world coordinates or viewport center.
+   */
+  addTextBox?(options?: { x?: number; y?: number; text?: string; fontSize?: number; fontWeight?: string }): void;
+
+  /**
    * Creates a sticky note at world coordinates.
    */
   createStickyNoteAt?(options: { template?: string; x: number; y: number; header?: string; body?: string }): Promise<void>;
+
+  /**
+   * Creates a geometric shape at specified world coordinates.
+   */
+  createShapeAtPoint?(shape: ShapeSubtype, point: { x: number; y: number }): void;
 
   /**
    * Applies rich text styling to selected text on canvas.

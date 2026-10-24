@@ -6,9 +6,9 @@ import { useWorkspace } from '../../context/WorkspaceContext';
  * Renders real-time remote user cursors that scale and pan seamlessly with the infinite canvas.
  */
 export const LiveCursorOverlay: React.FC = () => {
-  const { collaborators, simulationSettings, pan, zoom } = useWorkspace();
+  const { collaborators, pan, zoom } = useWorkspace();
 
-  if (!simulationSettings.showDemoCollaborators || !collaborators || collaborators.length === 0) {
+  if (!collaborators || collaborators.length === 0) {
     return null;
   }
 

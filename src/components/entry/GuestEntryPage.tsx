@@ -229,7 +229,9 @@ export const GuestEntryPage: React.FC = () => {
         <div className="flex items-center justify-center gap-2 sm:gap-3 text-[11px] text-[#302633]/70 font-medium flex-wrap pt-2">
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[#5D8B55] animate-pulse" />
-            {collaborators.length} Active Curators Online
+            {collaborators.length > 0
+              ? `${collaborators.length} Active Curator${collaborators.length > 1 ? 's' : ''} Online`
+              : 'Ready to Collaborate'}
           </span>
           <span className="text-[#302633]/30">•</span>
           <span>Latency: 14ms (Simulated)</span>

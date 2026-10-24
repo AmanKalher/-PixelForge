@@ -4,7 +4,6 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { WorkspaceHeader } from './components/header/WorkspaceHeader';
 import { LeftToolbar } from './components/toolbar/LeftToolbar';
 import { FloatingBoardToolbar } from './components/toolbar/FloatingBoardToolbar';
-import { CanvasCoordinateIndicator } from './components/canvas/CanvasCoordinateIndicator';
 import { ContextualStyleBar } from './components/controls/ContextualStyleBar';
 import { CanvasMountPlaceholder } from './components/canvas/CanvasMountPlaceholder';
 import { UIPreviewOverlay } from './components/canvas/UIPreviewOverlay';
@@ -21,6 +20,8 @@ import { HistoryModal } from './components/modals/HistoryModal';
 
 const WorkspaceShell: React.FC = () => {
   const {
+    activeNav,
+    setActiveNav,
     setActiveTool,
     undo,
     redo,
@@ -52,6 +53,7 @@ const WorkspaceShell: React.FC = () => {
     onZoomOut: zoomOut,
     onDelete: deleteSelected,
     onEscape: () => {
+      if (activeNav) setActiveNav(null);
       setIsShapesPopoverOpen(false);
       setIsSimulationDrawerOpen(false);
       if (isLayersPanelOpen) toggleLayersPanel();
@@ -72,17 +74,19 @@ const WorkspaceShell: React.FC = () => {
       {/* 3. Realtime Collaborator Live Cursors Overlay */}
       <LiveCursorOverlay />
 
-      {/* 4. Live Canvas Coordinate Indicator (Upper-Left of Board) */}
-      <CanvasCoordinateIndicator />
-
       {/* 5. Top Header & Navigation Bar */}
       <WorkspaceHeader />
 
-      {/* 6. Left Navigation Sidebar */}
+      {/* 6. Left Navigation Rail & Flyout Panels */}
       <LeftToolbar />
 
-      {/* 7. Floating Creation Toolbar (Upper-Center of Board) */}
-      <FloatingBoardToolbar />
+      {/* 7. Tools Panel (Toolbar rendered in vertical panel beside rail when Tools is selected) */}
+      {activeNav === 'tools' && (
+        <FloatingBoardToolbar
+          vertical
+          onClose={() => setActiveNav(null)}
+        />
+      )}
 
       {/* 8. Contextual Style Bar (active when drawing or mock object selected) */}
       <ContextualStyleBar />

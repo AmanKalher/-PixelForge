@@ -6,11 +6,13 @@ import { Check, Sparkles, X } from 'lucide-react';
 interface StickyTemplateGalleryPopoverProps {
   isOpen: boolean;
   onClose: () => void;
+  placement?: 'bottom' | 'right';
 }
 
 export const StickyTemplateGalleryPopover: React.FC<StickyTemplateGalleryPopoverProps> = ({
   isOpen,
   onClose,
+  placement = 'right',
 }) => {
   const {
     selectedStickyTemplate,
@@ -57,7 +59,11 @@ export const StickyTemplateGalleryPopover: React.FC<StickyTemplateGalleryPopover
   return (
     <div
       ref={popoverRef}
-      className="absolute top-12 left-1/2 -translate-x-1/2 w-80 sm:w-96 bg-white border border-[#EFE5D8] rounded-2xl shadow-2xl p-4 z-50 text-[#302633] animate-in fade-in zoom-in-95 duration-150"
+      className={`absolute ${
+        placement === 'right'
+          ? 'left-full top-1/2 -translate-y-1/2 ml-3'
+          : 'top-12 left-1/2 -translate-x-1/2'
+      } w-80 sm:w-96 bg-white border border-[#EFE5D8] rounded-2xl shadow-2xl p-4 z-50 text-[#302633] animate-in fade-in zoom-in-95 duration-150 max-h-[88vh] overflow-y-auto`}
       role="dialog"
       aria-label="Sticky Note Templates"
     >

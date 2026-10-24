@@ -129,27 +129,22 @@ export const ContextualStyleBar: React.FC = () => {
     ? mockObjects.find((o) => o.id === selectedMockObjectId) || null
     : null);
 
-  // Show only if an object is selected, OR if stylable tool is active
-  const isStylableTool = [
-    'brush',
-    'highlighter',
-    'eraser',
-    'rectangle',
-    'rounded-rectangle',
-    'circle',
-    'ellipse',
-    'diamond',
-    'triangle',
-    'sticky',
-    'text',
-  ].includes(activeTool);
+  // Reset all open popovers whenever selection changes or is cleared
+  useEffect(() => {
+    if (!selectedObject) {
+      setIsFillPickerOpen(false);
+      setIsStrokePickerOpen(false);
+      setIsWidthMenuOpen(false);
+      setIsOpacityMenuOpen(false);
+      setIsTemplateMenuOpen(false);
+      setIsMoreMenuOpen(false);
+    }
+  }, [selectedObject?.id]);
 
-  const shouldShow =
-    hasActiveObject ||
-    selectedObject !== null ||
-    (isStylableTool && activeTool !== 'select' && activeTool !== 'pan');
+  // Contextual toolbar must ONLY be shown when a relevant object is actively selected
+  const shouldShow = Boolean(selectedObject && (hasActiveObject || selectedCanvasObject || selectedMockObjectId));
 
-  if (!shouldShow) return null;
+  if (!shouldShow || !selectedObject) return null;
 
   const isMultiSelection = Boolean(
     selectedObject && (
@@ -242,7 +237,7 @@ export const ContextualStyleBar: React.FC = () => {
     // Position comfortably above the object, clearing Fabric's rotation handle (offset at -40px)
     let top = selectionScreenBounds.top - barHeightEstimate - 60;
 
-    if (top < 70) {
+    if (top < 86) {
       top = selectionScreenBounds.top + selectionScreenBounds.height + 24;
     }
 
@@ -253,7 +248,7 @@ export const ContextualStyleBar: React.FC = () => {
       left = viewportWidth - halfWidth - 20;
     }
 
-    top = Math.max(64, Math.min(viewportHeight - barHeightEstimate - 20, top));
+    top = Math.max(86, Math.min(viewportHeight - barHeightEstimate - 20, top));
 
     stylePosition = {
       top: `${Math.round(top)}px`,

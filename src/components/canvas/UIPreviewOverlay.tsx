@@ -893,7 +893,7 @@ export const UIPreviewOverlay: React.FC = () => {
     >
       {/* Simulated Error Banner */}
       {simulationSettings.isErrorState && (
-        <div className="fixed top-14 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 pointer-events-auto shadow-md z-30">
+        <div className="fixed top-[86px] left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 pointer-events-auto shadow-md z-30">
           <AlertTriangle className="w-4 h-4 text-rose-500 flex-shrink-0" />
           <span>
             [Simulated Error State]: Unable to reach sync endpoint. Local edits will queue for reconnection.

@@ -16,6 +16,7 @@ import {
   Highlighter,
   Eraser,
   ChevronDown,
+  X,
 } from 'lucide-react';
 import { StickyTemplateGalleryPopover } from './StickyTemplateGalleryPopover';
 import { BrushToolPopover } from './BrushToolPopover';
@@ -23,7 +24,15 @@ import { HighlighterToolPopover } from './HighlighterToolPopover';
 import { EraserToolPopover } from './EraserToolPopover';
 import { TextToolPopover } from './TextToolPopover';
 
-export const FloatingBoardToolbar: React.FC = () => {
+export interface FloatingBoardToolbarProps {
+  vertical?: boolean;
+  onClose?: () => void;
+}
+
+export const FloatingBoardToolbar: React.FC<FloatingBoardToolbarProps> = ({
+  vertical = true,
+  onClose,
+}) => {
   const {
     activeTool,
     activeShape,
@@ -124,9 +133,242 @@ export const FloatingBoardToolbar: React.FC = () => {
     { shape: 'arrow', label: 'Arrow', icon: <MoveRight className="w-3.5 h-3.5" />, shortcut: 'A' },
   ];
 
+  if (vertical) {
+    return (
+      <div
+        className="fixed top-[86px] left-[86px] z-20 flex flex-col items-center gap-2 select-none animate-in fade-in slide-in-from-left-2 duration-150"
+        role="toolbar"
+        aria-label="Creation Tools"
+      >
+        {/* Top Close Button */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white border border-[#EFE5D8] shadow-md flex items-center justify-center text-[#302633]/60 hover:text-[#302633] hover:bg-[#FFF9F0] transition cursor-pointer"
+            title="Close Tools panel"
+            aria-label="Close Tools panel"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* Vertical Floating Pill */}
+        <div className="bg-white/95 backdrop-blur-xs border border-[#EFE5D8] rounded-full shadow-lg p-1.5 flex flex-col items-center gap-1 text-[#302633]">
+          {/* 1. Select (V) */}
+          <button
+            onClick={() => setActiveTool('select')}
+            className={`p-2 rounded-full transition cursor-pointer ${
+              activeTool === 'select'
+                ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold ring-1 ring-[#FCD9D3] shadow-2xs'
+                : 'hover:bg-[#FFF9F0] text-[#302633]/70 hover:text-[#302633]'
+            }`}
+            title="Select (V)"
+            aria-label="Select Tool"
+          >
+            <MousePointer className="w-4 h-4" />
+          </button>
+
+          {/* 2. Hand / Pan (H) */}
+          <button
+            onClick={() => setActiveTool('pan')}
+            className={`p-2 rounded-full transition cursor-pointer ${
+              activeTool === 'pan'
+                ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold ring-1 ring-[#FCD9D3] shadow-2xs'
+                : 'hover:bg-[#FFF9F0] text-[#302633]/70 hover:text-[#302633]'
+            }`}
+            title="Pan Canvas (H) or hold Space"
+            aria-label="Pan Tool"
+          >
+            <Hand className="w-4 h-4" />
+          </button>
+
+          {/* Divider */}
+          <div className="w-5 h-px bg-[#EFE5D8] my-0.5" />
+
+          {/* 3. Shape Picker (R) */}
+          <div className="relative" ref={popoverRef}>
+            <button
+              onClick={() => {
+                if (!isShapeActive) {
+                  setActiveTool(activeShape);
+                }
+                setIsShapesPopoverOpen(!isShapesPopoverOpen);
+              }}
+              className={`p-2 rounded-full transition cursor-pointer ${
+                isShapeActive
+                  ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold ring-1 ring-[#FCD9D3] shadow-2xs'
+                  : 'hover:bg-[#FFF9F0] text-[#302633]/70 hover:text-[#302633]'
+              }`}
+              title={`Shapes (R) - Active: ${activeShape}`}
+              aria-label="Shape picker"
+            >
+              {getShapeIcon(activeShape)}
+            </button>
+
+            {/* Shapes Submenu Popover (8 Shapes) */}
+            {isShapesPopoverOpen && (
+              <div className="absolute left-full top-0 ml-3 w-48 bg-white border border-[#EFE5D8] rounded-xl shadow-xl p-1.5 z-50 text-xs space-y-0.5 animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-2 py-1 text-[10px] font-bold text-[#302633]/40 uppercase tracking-wider">
+                  Select Shape
+                </div>
+                {shapesList.map(({ shape, label, icon, shortcut }) => {
+                  const isSelected = activeShape === shape && isShapeActive;
+                  return (
+                    <button
+                      key={shape}
+                      onClick={() => {
+                        setActiveShape(shape);
+                        setActiveTool(shape);
+                        setIsShapesPopoverOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
+                          : 'text-[#302633] hover:bg-[#FFF9F0]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {icon}
+                        <span>{label}</span>
+                      </div>
+                      <kbd className="text-[10px] text-[#302633]/40 font-mono">{shortcut}</kbd>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 4. Draw / Brush (P) */}
+          <div className="relative" ref={brushRef}>
+            <button
+              onClick={() => {
+                setActiveTool('brush');
+                setIsBrushPopoverOpen((prev) => !prev);
+              }}
+              className={`p-2 rounded-full transition cursor-pointer ${
+                isBrushActive
+                  ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold ring-1 ring-[#FCD9D3] shadow-2xs'
+                  : 'hover:bg-[#FFF9F0] text-[#302633]/70 hover:text-[#302633]'
+              }`}
+              title="Freehand Draw (P) - Click to toggle brush options"
+              aria-label="Draw Tool"
+            >
+              <PenTool className="w-4 h-4" />
+            </button>
+            <BrushToolPopover
+              isOpen={isBrushPopoverOpen}
+              onClose={() => setIsBrushPopoverOpen(false)}
+              placement="right"
+            />
+          </div>
+
+          {/* 5. Highlighter (L) */}
+          <div className="relative" ref={highlighterRef}>
+            <button
+              onClick={() => {
+                setActiveTool('highlighter');
+                setIsHighlighterPopoverOpen((prev) => !prev);
+              }}
+              className={`p-2 rounded-full transition cursor-pointer ${
+                activeTool === 'highlighter'
+                  ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold ring-1 ring-[#FCD9D3] shadow-2xs'
+                  : 'hover:bg-[#FFF9F0] text-[#302633]/70 hover:text-[#302633]'
+              }`}
+              title="Highlighter (L) - Click to toggle colors & width"
+              aria-label="Highlighter Tool"
+            >
+              <Highlighter className="w-4 h-4 text-[#F7D774]" />
+            </button>
+            <HighlighterToolPopover
+              isOpen={isHighlighterPopoverOpen}
+              onClose={() => setIsHighlighterPopoverOpen(false)}
+              placement="right"
+            />
+          </div>
+
+          {/* 6. Eraser (E) */}
+          <div className="relative" ref={eraserRef}>
+            <button
+              onClick={() => {
+                setActiveTool('eraser');
+                setIsEraserPopoverOpen((prev) => !prev);
+              }}
+              className={`p-2 rounded-full transition cursor-pointer ${
+                activeTool === 'eraser'
+                  ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold ring-1 ring-[#FCD9D3] shadow-2xs'
+                  : 'hover:bg-[#FFF9F0] text-[#302633]/70 hover:text-[#302633]'
+              }`}
+              title="Eraser (E) - Click to toggle options"
+              aria-label="Eraser Tool"
+            >
+              <Eraser className="w-4 h-4" />
+            </button>
+            <EraserToolPopover
+              isOpen={isEraserPopoverOpen}
+              onClose={() => setIsEraserPopoverOpen(false)}
+              placement="right"
+            />
+          </div>
+
+          {/* Divider */}
+          <div className="w-5 h-px bg-[#EFE5D8] my-0.5" />
+
+          {/* 7. Sticky Note (S) */}
+          <div className="relative" ref={stickyRef}>
+            <button
+              onClick={() => {
+                handleToolClick('sticky');
+                setIsStickyGalleryOpen(!isStickyGalleryOpen);
+              }}
+              className={`p-2 rounded-full transition cursor-pointer ${
+                activeTool === 'sticky'
+                  ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold ring-1 ring-[#FCD9D3] shadow-2xs'
+                  : 'hover:bg-[#FFF9F0] text-[#302633]/70 hover:text-[#302633]'
+              }`}
+              title={`Sticky Note (S) - Template: ${selectedStickyTemplate}`}
+              aria-label="Sticky Note Tool"
+            >
+              <StickyNote className="w-4 h-4 text-[#F7D774]" />
+            </button>
+            <StickyTemplateGalleryPopover
+              isOpen={isStickyGalleryOpen}
+              onClose={() => setIsStickyGalleryOpen(false)}
+              placement="right"
+            />
+          </div>
+
+          {/* 8. Text (T) */}
+          <div className="relative" ref={textRef}>
+            <button
+              onClick={() => {
+                handleToolClick('text');
+                setIsTextPopoverOpen(!isTextPopoverOpen);
+              }}
+              className={`p-2 rounded-full transition cursor-pointer ${
+                activeTool === 'text'
+                  ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold ring-1 ring-[#FCD9D3] shadow-2xs'
+                  : 'hover:bg-[#FFF9F0] text-[#302633]/70 hover:text-[#302633]'
+              }`}
+              title="Text (T) - Click to toggle text options"
+              aria-label="Text Tool"
+            >
+              <Type className="w-4 h-4" />
+            </button>
+            <TextToolPopover
+              isOpen={isTextPopoverOpen}
+              onClose={() => setIsTextPopoverOpen(false)}
+              placement="right"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
-      className="fixed top-14 left-1/2 -translate-x-1/2 z-20 flex items-center select-none animate-in fade-in slide-in-from-top-1 duration-150"
+      className="fixed top-[86px] left-1/2 -translate-x-1/2 z-20 flex items-center select-none animate-in fade-in slide-in-from-top-1 duration-150"
       role="toolbar"
       aria-label="Creation Tools"
     >

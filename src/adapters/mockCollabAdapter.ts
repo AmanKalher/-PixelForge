@@ -4,7 +4,6 @@ import {
   Collaborator,
   BoardOperationPayload,
 } from '../types/whiteboard';
-import { MOCK_COLLABORATORS } from '../mocks/demoData';
 
 /**
  * MockCollabAdapter
@@ -15,7 +14,7 @@ import { MOCK_COLLABORATORS } from '../mocks/demoData';
  */
 export class MockCollabAdapter implements CollaborationClientContract {
   private status: ConnectionStatus = 'connected';
-  private collaborators: Collaborator[] = [...MOCK_COLLABORATORS];
+  private collaborators: Collaborator[] = [];
   private localUser: { name: string; color: string } = {
     name: 'Guest Maker',
     color: '#6366f1',

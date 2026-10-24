@@ -138,6 +138,11 @@ export interface WorkspaceContextValue {
   isShapesPopoverOpen: boolean;
   setIsShapesPopoverOpen: (open: boolean) => void;
 
+  // Whiteboard Navigation Rail & Panels
+  activeNav: 'elements' | 'text' | 'tools' | 'projects' | null;
+  setActiveNav: React.Dispatch<React.SetStateAction<'elements' | 'text' | 'tools' | 'projects' | null>>;
+  addTextBox: (options?: { x?: number; y?: number; text?: string; fontSize?: number; fontWeight?: string }) => void;
+
   // Simulation controls
   simulationSettings: SimulationSettings;
   updateSimulatedStatus: (status: ConnectionStatus) => void;
@@ -370,7 +375,7 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
 
   // Collaboration state subscriptions
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connected');
-  const [collaborators, setCollaborators] = useState<Collaborator[]>(MOCK_COLLABORATORS);
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
 
   // Modals & Panels
   const [isGuestModalOpen, setIsGuestModalOpen] = useState<boolean>(false);
@@ -379,9 +384,10 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
   const [isSimulationDrawerOpen, setIsSimulationDrawerOpen] = useState<boolean>(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
   const [isMinimapOpen, setIsMinimapOpen] = useState<boolean>(true);
-  const [isLayersPanelOpen, setIsLayersPanelOpen] = useState<boolean>(true);
+  const [isLayersPanelOpen, setIsLayersPanelOpen] = useState<boolean>(false);
   const [isStickyGalleryOpen, setIsStickyGalleryOpen] = useState<boolean>(false);
   const [isBrushStudioOpen, setIsBrushStudioOpen] = useState<boolean>(false);
+  const [activeNav, setActiveNav] = useState<'elements' | 'text' | 'tools' | 'projects' | null>(null);
 
   // Brush Studio & Sticky Template State
   const [brushSettings, setBrushSettingsState] = useState<BrushSettings>({
@@ -490,7 +496,7 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
   // Simulation settings
   const [simulationSettings, setSimulationSettings] = useState<SimulationSettings>({
     simulatedStatus: 'connected',
-    showDemoCollaborators: true,
+    showDemoCollaborators: false,
     isEmptyBoard: false,
     isErrorState: false,
   });
@@ -509,7 +515,13 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
           setSelectedCanvasObject((prev) => {
             if (!prev) return null;
             const updated = objects.find((o) => o.id === prev.id);
-            return updated || prev;
+            if (!updated) {
+              setSelectedMockObjectIdState(null);
+              setHasActiveFabricObject(false);
+              setSelectionScreenBounds(null);
+              return null;
+            }
+            return updated;
           });
         })
       : () => {};
@@ -520,6 +532,17 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
           setHasActiveFabricObject(Boolean(selectedId));
           if (!selectedId) {
             setSelectionScreenBounds(null);
+            setTextSettingsState({
+              fontFamily: 'Arial',
+              fontSize: 24,
+              fill: '#302633',
+              bold: false,
+              italic: false,
+              underline: false,
+              textAlign: 'left',
+              backgroundColor: 'transparent',
+              lineHeight: 1.2,
+            });
           }
           if (selectedObj) {
             setStyleConfig((prev) => ({
@@ -535,18 +558,17 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
             }));
 
             if (selectedObj.type === 'text' || selectedObj.type === 'sticky') {
-              setTextSettingsState((prev) => ({
-                ...prev,
-                fontFamily: selectedObj.fontFamily || prev.fontFamily,
-                fontSize: selectedObj.fontSize || prev.fontSize,
-                fill: selectedObj.fillColor || selectedObj.strokeColor || prev.fill,
+              setTextSettingsState({
+                fontFamily: selectedObj.fontFamily || 'Arial',
+                fontSize: selectedObj.fontSize || 24,
+                fill: selectedObj.fillColor || selectedObj.strokeColor || '#302633',
                 bold: selectedObj.fontWeight === 'bold',
                 italic: selectedObj.fontStyle === 'italic',
                 underline: Boolean(selectedObj.underline),
-                textAlign: (selectedObj.textAlign as any) || prev.textAlign,
+                textAlign: (selectedObj.textAlign as any) || 'left',
                 backgroundColor: selectedObj.backgroundColor || 'transparent',
-                lineHeight: selectedObj.lineHeight || prev.lineHeight,
-              }));
+                lineHeight: selectedObj.lineHeight || 1.2,
+              });
             }
           }
         })
@@ -681,6 +703,8 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       } else {
         setSelectedCanvasObject(null);
         setEditingObjectId(null);
+        setHasActiveFabricObject(false);
+        setSelectionScreenBounds(null);
       }
     },
     [canvasEngine, isUIPreviewMode, fabricObjects]
@@ -997,6 +1021,21 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       commitSnapshot(updated, null);
       setEditingObjectId(null);
     }
+    setSelectedCanvasObject(null);
+    setSelectedMockObjectIdState(null);
+    setHasActiveFabricObject(false);
+    setSelectionScreenBounds(null);
+    setTextSettingsState({
+      fontFamily: 'Arial',
+      fontSize: 24,
+      fill: '#302633',
+      bold: false,
+      italic: false,
+      underline: false,
+      textAlign: 'left',
+      backgroundColor: 'transparent',
+      lineHeight: 1.2,
+    });
   }, [canvasEngine, selectedMockObjectId, commitSnapshot]);
 
   const duplicateSelected = useCallback(() => {
@@ -1117,6 +1156,17 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       }
     },
     [canvasEngine, isUIPreviewMode, fabricObjects, commitSnapshot, selectedMockObjectId]
+  );
+
+  const addTextBox = useCallback(
+    (options?: { x?: number; y?: number; text?: string; fontSize?: number; fontWeight?: string }) => {
+      if (canvasEngine.addTextBox) {
+        canvasEngine.addTextBox(options);
+      } else if (isUIPreviewMode) {
+        createMockObject('text', options ? { x: options.x ?? 400, y: options.y ?? 250 } : undefined);
+      }
+    },
+    [canvasEngine, isUIPreviewMode, createMockObject]
   );
 
   // Simulation controls
@@ -1258,6 +1308,9 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       toggleObjectVisibility,
       isShapesPopoverOpen,
       setIsShapesPopoverOpen,
+      activeNav,
+      setActiveNav,
+      addTextBox,
       simulationSettings,
       updateSimulatedStatus,
       toggleDemoCollaborators,
@@ -1342,6 +1395,9 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       updateObjectProperties,
       toggleObjectVisibility,
       isShapesPopoverOpen,
+      activeNav,
+      setActiveNav,
+      addTextBox,
       simulationSettings,
       updateSimulatedStatus,
       toggleDemoCollaborators,

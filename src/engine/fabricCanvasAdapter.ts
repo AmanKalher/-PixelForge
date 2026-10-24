@@ -625,7 +625,12 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
     if (!this.canvas) return;
     const activeObjects = this.canvas.getActiveObjects();
     if (activeObjects.length > 0) {
-      activeObjects.forEach((obj) => this.canvas?.remove(obj));
+      activeObjects.forEach((obj) => {
+        if ((obj as any).isEditing) {
+          (obj as any).exitEditing?.();
+        }
+        this.canvas?.remove(obj);
+      });
       this.canvas.discardActiveObject();
       this.canvas.requestRenderAll();
       this.notifyObjects();
@@ -950,6 +955,54 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
     } catch (err) {
       console.warn('[FabricCanvasAdapter] Failed to change sticky template:', err);
     }
+  }
+
+  public addTextBox(options?: {
+    x?: number;
+    y?: number;
+    text?: string;
+    fontSize?: number;
+    fontWeight?: string;
+  }): any {
+    if (!this.canvas) return null;
+    const vpt = this.canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+    const defaultX = options?.x ?? (this.canvas.getWidth() / 2 - vpt[4]) / vpt[0] - 130;
+    const defaultY = options?.y ?? (this.canvas.getHeight() / 2 - vpt[5]) / vpt[3] - 20;
+
+    const textObj = new Textbox(options?.text || 'Type something...', {
+      left: defaultX,
+      top: defaultY,
+      width: 260,
+      fontFamily: this.textSettings.fontFamily || 'Arial',
+      fontSize: options?.fontSize || this.textSettings.fontSize || 24,
+      fill: this.textSettings.fill || '#302633',
+      fontWeight: options?.fontWeight || (this.textSettings.bold ? 'bold' : 'normal'),
+      fontStyle: this.textSettings.italic ? 'italic' : 'normal',
+      underline: Boolean(this.textSettings.underline),
+      textAlign: this.textSettings.textAlign || 'left',
+      backgroundColor:
+        this.textSettings.backgroundColor === 'transparent' ? '' : this.textSettings.backgroundColor,
+      lineHeight: this.textSettings.lineHeight || 1.2,
+      editable: true,
+      splitByGrapheme: true,
+      objectCaching: false,
+      padding: 4,
+    });
+    (textObj as any).id = `text-${Date.now()}`;
+    (textObj as any).name = 'Text Box';
+    (textObj as any).isPixelForgeText = true;
+    (textObj as any).pixelForgeObjectType = 'text';
+
+    this.canvas.add(textObj);
+    this.canvas.setActiveObject(textObj);
+    textObj.enterEditing();
+    textObj.selectAll();
+    this.setTool('select');
+    this.notifyObjects();
+    this.notifySelection(textObj);
+    this.notifySelectionBounds();
+    this.saveHistorySnapshot();
+    return textObj;
   }
 
   public async seedDemoContent(): Promise<void> {
@@ -1459,6 +1512,19 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
   public notifySelection(selected: FabricObject | null) {
     if (!selected) {
       this.notifyActiveObject(null);
+      this.lastSelectedObjectId = null;
+      this.textSettings = {
+        fontFamily: 'Arial',
+        fontSize: 24,
+        fill: '#302633',
+        bold: false,
+        italic: false,
+        underline: false,
+        textAlign: 'left',
+        backgroundColor: 'transparent',
+        lineHeight: 1.2,
+      };
+      this.notifyTextSettings(this.textSettings);
       for (const listener of this.selectionListeners) {
         listener(null, null);
       }
@@ -1470,15 +1536,15 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
 
     if (canvasObj.type === 'text' || canvasObj.type === 'sticky') {
       const nextSettings: TextFormattingSettings = {
-        fontFamily: canvasObj.fontFamily || this.textSettings.fontFamily || 'Arial',
-        fontSize: canvasObj.fontSize || this.textSettings.fontSize || 24,
-        fill: canvasObj.fillColor || canvasObj.strokeColor || this.textSettings.fill || '#302633',
+        fontFamily: canvasObj.fontFamily || 'Arial',
+        fontSize: canvasObj.fontSize || 24,
+        fill: canvasObj.fillColor || canvasObj.strokeColor || '#302633',
         bold: canvasObj.fontWeight === 'bold',
         italic: canvasObj.fontStyle === 'italic',
         underline: Boolean(canvasObj.underline),
-        textAlign: (canvasObj.textAlign as any) || this.textSettings.textAlign || 'left',
+        textAlign: (canvasObj.textAlign as any) || 'left',
         backgroundColor: canvasObj.backgroundColor || 'transparent',
-        lineHeight: canvasObj.lineHeight || this.textSettings.lineHeight || 1.2,
+        lineHeight: canvasObj.lineHeight || 1.2,
       };
       this.textSettings = nextSettings;
       this.notifyTextSettings(nextSettings);
@@ -1949,40 +2015,21 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
         return;
       }
 
+      // If user clicked on empty canvas area, immediately clear active selection & exit editing
+      const activeObj = canvas.getActiveObject();
+      if (activeObj) {
+        if ((activeObj as any).isEditing) {
+          (activeObj as any).exitEditing?.();
+        }
+        canvas.discardActiveObject();
+        canvas.requestRenderAll();
+        this.notifySelection(null);
+        this.notifySelectionBounds();
+      }
+
       // Click on canvas background:
       if (this.currentTool === 'text') {
-        const textObj = new Textbox('Type something...', {
-          left: point.x,
-          top: point.y,
-          width: 260,
-          fontFamily: this.textSettings.fontFamily || 'Arial',
-          fontSize: this.textSettings.fontSize || 24,
-          fill: this.textSettings.fill || '#302633',
-          fontWeight: this.textSettings.bold ? 'bold' : 'normal',
-          fontStyle: this.textSettings.italic ? 'italic' : 'normal',
-          underline: Boolean(this.textSettings.underline),
-          textAlign: this.textSettings.textAlign || 'left',
-          backgroundColor: this.textSettings.backgroundColor === 'transparent' ? '' : this.textSettings.backgroundColor,
-          lineHeight: this.textSettings.lineHeight || 1.2,
-          editable: true,
-          splitByGrapheme: true,
-          objectCaching: false,
-          padding: 4,
-        });
-        (textObj as any).id = `text-${Date.now()}`;
-        (textObj as any).name = 'Text Box';
-        (textObj as any).isPixelForgeText = true;
-        (textObj as any).pixelForgeObjectType = 'text';
-
-        canvas.add(textObj);
-        canvas.setActiveObject(textObj);
-        textObj.enterEditing();
-        textObj.selectAll();
-        this.setTool('select');
-        this.notifyObjects();
-        this.notifySelection(textObj);
-        this.notifySelectionBounds();
-        this.saveHistorySnapshot();
+        this.addTextBox({ x: point.x, y: point.y });
         return;
       }
 
@@ -2387,21 +2434,23 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
         });
         break;
       case 'arrow': {
-        const line = new Line([0, 0, 140, 0], {
+        const line = new Line([0, 0, 134, 0], {
           stroke,
           strokeWidth,
         });
         const head = new Triangle({
           left: 140,
-          top: -8,
+          top: 0,
+          originX: 'center',
+          originY: 'center',
           width: 16,
-          height: 16,
+          height: 18,
           angle: 90,
           fill: stroke,
         });
         shapeObj = new Group([line, head], {
           left: point.x - 75,
-          top: point.y - 8,
+          top: point.y,
         });
         break;
       }
@@ -2429,9 +2478,11 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
       this.canvas.add(shapeObj);
       this.canvas.setActiveObject(shapeObj);
       this.canvas.requestRenderAll();
+      this.setTool('select');
       this.notifyObjects();
       this.notifySelection(shapeObj);
       this.notifySelectionBounds();
+      this.saveHistorySnapshot();
     }
   }
 
@@ -2585,8 +2636,17 @@ export async function seedInitialSprintObjects(canvas: Canvas): Promise<void> {
   canvas.add(circle1);
 
   // 6. Arrow 1: Frontend -> API
-  const line1 = new Line([580, 185, 638, 185], { stroke: '#6366F1', strokeWidth: 2 });
-  const arrowHead1 = new Triangle({ left: 632, top: 178, width: 14, height: 14, angle: 90, fill: '#6366F1' });
+  const line1 = new Line([580, 185, 634, 185], { stroke: '#6366F1', strokeWidth: 2 });
+  const arrowHead1 = new Triangle({
+    left: 640,
+    top: 185,
+    originX: 'center',
+    originY: 'center',
+    width: 14,
+    height: 16,
+    angle: 90,
+    fill: '#6366F1',
+  });
   const arrow1 = new Group([line1, arrowHead1], { selectable: true });
   (arrow1 as any).id = 'mock-arrow-1';
   (arrow1 as any).name = 'Arrow 1';
@@ -2616,8 +2676,17 @@ export async function seedInitialSprintObjects(canvas: Canvas): Promise<void> {
   canvas.add(diamond1);
 
   // 8. Arrow 2: API -> Database
-  const line2 = new Line([765, 185, 818, 185], { stroke: '#8B5CF6', strokeWidth: 2 });
-  const arrowHead2 = new Triangle({ left: 812, top: 178, width: 14, height: 14, angle: 90, fill: '#8B5CF6' });
+  const line2 = new Line([765, 185, 814, 185], { stroke: '#8B5CF6', strokeWidth: 2 });
+  const arrowHead2 = new Triangle({
+    left: 820,
+    top: 185,
+    originX: 'center',
+    originY: 'center',
+    width: 14,
+    height: 16,
+    angle: 90,
+    fill: '#8B5CF6',
+  });
   const arrow2 = new Group([line2, arrowHead2], { selectable: true });
   (arrow2 as any).id = 'mock-arrow-2';
   (arrow2 as any).name = 'Arrow 2';

@@ -82,7 +82,7 @@ export const CanvasMountPlaceholder: React.FC = () => {
     <div
       ref={containerRef}
       id="pixelforge-canvas-container"
-      className="absolute inset-0 overflow-hidden bg-[#FAF8F5] flex items-center justify-center pt-12 select-none"
+      className="absolute inset-0 overflow-hidden bg-[#FAF8F5] flex items-center justify-center pt-[76px] select-none"
       style={{
         backgroundImage: isGridSnapEnabled
           ? `radial-gradient(circle, #DFD6CA ${Math.max(1, 1.5 * zoom)}px, transparent ${Math.max(1, 1.5 * zoom)}px)`
