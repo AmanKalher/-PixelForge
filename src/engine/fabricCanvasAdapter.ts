@@ -246,7 +246,29 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
   private objectsListeners: Set<(objects: CanvasObject[]) => void> = new Set();
   private selectionListeners: Set<(selectedId: string | null, selectedObject?: CanvasObject | null) => void> = new Set();
   private brushSettingsListeners: Set<(settings: BrushSettings) => void> = new Set();
+  private textSettingsListeners: Set<(settings: TextFormattingSettings) => void> = new Set();
   private selectionBoundsListeners: Set<(bounds: { left: number; top: number; width: number; height: number } | null) => void> = new Set();
+
+  // Text formatting state
+  private textSettings: TextFormattingSettings = {
+    fontFamily: 'Arial',
+    fontSize: 24,
+    fill: '#302633',
+    bold: false,
+    italic: false,
+    underline: false,
+    textAlign: 'left',
+    backgroundColor: 'transparent',
+    lineHeight: 1.2,
+  };
+  private lastSelectedObjectId: string | null = null;
+
+  // Shape creation defaults (isolated from edits to existing selected shapes)
+  private defaultShapeConfig = {
+    strokeColor: '#F26B5B',
+    fillColor: '#FFF9F0',
+    strokeWidth: 2,
+  };
 
   /**
    * Attach the active Fabric Canvas instance.
@@ -353,8 +375,23 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
       this.applyBrushSettings();
     }
 
-    // 2. If object is selected, apply style properties
-    const active = this.canvas.getActiveObject() as any;
+    // 2. Resolve active object or fallback to last selected object
+    let active = this.canvas.getActiveObject() as any;
+    if (!active && this.lastSelectedObjectId) {
+      active = this.canvas.getObjects().find((o: any) => (o as any).id === this.lastSelectedObjectId);
+      if (active) {
+        this.canvas.setActiveObject(active);
+      }
+    }
+
+    if (!active) {
+      // No active selection: update shape creation defaults
+      if (style.strokeColor !== undefined) this.defaultShapeConfig.strokeColor = style.strokeColor;
+      if (style.fillColor !== undefined) this.defaultShapeConfig.fillColor = style.fillColor;
+      if (style.strokeWidth !== undefined) this.defaultShapeConfig.strokeWidth = Math.max(0, style.strokeWidth);
+      return;
+    }
+
     if (active) {
       if (active.type === 'activeselection' && typeof active.getObjects === 'function') {
         // Multi-selection: update each child object
@@ -374,10 +411,18 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
             if (typeof child.initDimensions === 'function') child.initDimensions();
           } else {
             const updates: any = {};
-            if (style.strokeColor !== undefined) updates.stroke = style.strokeColor;
-            if (style.fillColor !== undefined) updates.fill = (style.fillColor === 'transparent' || !style.fillColor) ? '' : style.fillColor;
-            if (style.strokeWidth !== undefined) updates.strokeWidth = style.strokeWidth;
-            if (style.opacity !== undefined) updates.opacity = style.opacity;
+            if (style.strokeColor !== undefined) {
+              updates.stroke = (style.strokeColor === 'transparent' || style.strokeColor === 'none') ? 'transparent' : style.strokeColor;
+            }
+            if (style.fillColor !== undefined) {
+              if (child.type === 'line') {
+                updates.fill = 'transparent';
+              } else {
+                updates.fill = (style.fillColor === 'transparent' || !style.fillColor || style.fillColor === 'none') ? 'transparent' : style.fillColor;
+              }
+            }
+            if (style.strokeWidth !== undefined) updates.strokeWidth = Math.max(0, style.strokeWidth);
+            if (style.opacity !== undefined) updates.opacity = Math.max(0, Math.min(1, style.opacity));
             child.set(updates);
           }
           child.dirty = true;
@@ -446,14 +491,15 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
         const line = active.getObjects().find((o: any) => o.type === 'line');
         const head = active.getObjects().find((o: any) => o.type === 'triangle');
         if (style.strokeColor !== undefined) {
-          if (line) line.set('stroke', style.strokeColor);
-          if (head) head.set('fill', style.strokeColor);
+          const sc = (style.strokeColor === 'transparent' || style.strokeColor === 'none') ? 'transparent' : style.strokeColor;
+          if (line) line.set('stroke', sc);
+          if (head) head.set('fill', sc);
         }
         if (style.strokeWidth !== undefined && line) {
-          line.set('strokeWidth', style.strokeWidth);
+          line.set('strokeWidth', Math.max(0, style.strokeWidth));
         }
         if (style.opacity !== undefined) {
-          active.set('opacity', style.opacity);
+          active.set('opacity', Math.max(0, Math.min(1, style.opacity)));
         }
         active.dirty = true;
       } else if (active.type === 'textbox' || active.isPixelForgeText) {
@@ -475,12 +521,18 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
       } else {
         // Vector Shapes & Drawings
         const updates: any = {};
-        if (style.strokeColor !== undefined) updates.stroke = style.strokeColor;
-        if (style.fillColor !== undefined) {
-          updates.fill = (style.fillColor === 'transparent' || !style.fillColor) ? '' : style.fillColor; // supports transparent and hex
+        if (style.strokeColor !== undefined) {
+          updates.stroke = (style.strokeColor === 'transparent' || style.strokeColor === 'none') ? 'transparent' : style.strokeColor;
         }
-        if (style.strokeWidth !== undefined) updates.strokeWidth = style.strokeWidth;
-        if (style.opacity !== undefined) updates.opacity = style.opacity;
+        if (style.fillColor !== undefined) {
+          if (active.type === 'line') {
+            updates.fill = 'transparent';
+          } else {
+            updates.fill = (style.fillColor === 'transparent' || !style.fillColor || style.fillColor === 'none') ? 'transparent' : style.fillColor;
+          }
+        }
+        if (style.strokeWidth !== undefined) updates.strokeWidth = Math.max(0, style.strokeWidth);
+        if (style.opacity !== undefined) updates.opacity = Math.max(0, Math.min(1, style.opacity));
 
         active.set(updates);
         active.dirty = true;
@@ -943,79 +995,132 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
   // Text Formatting Methods
   // =========================================================================
 
-  public applyTextStyle(style: Partial<TextFormattingSettings>): void {
+  public setTextSettings(settings: Partial<TextFormattingSettings>): void {
+    this.textSettings = { ...this.textSettings, ...settings };
+    this.notifyTextSettings(this.textSettings);
+  }
+
+  public getTextSettings(): TextFormattingSettings {
+    return { ...this.textSettings };
+  }
+
+  public onTextSettingsChange(listener: (settings: TextFormattingSettings) => void): () => void {
+    this.textSettingsListeners.add(listener);
+    listener(this.getTextSettings());
+    return () => {
+      this.textSettingsListeners.delete(listener);
+    };
+  }
+
+  private notifyTextSettings(settings: TextFormattingSettings) {
+    for (const listener of this.textSettingsListeners) {
+      listener(settings);
+    }
+  }
+
+  public applyTextStyle(style: Partial<TextFormattingSettings> & Record<string, any>): void {
+    const boldVal = style.bold !== undefined ? style.bold : (style.fontWeight !== undefined ? style.fontWeight === 'bold' : undefined);
+    const italicVal = style.italic !== undefined ? style.italic : (style.fontStyle !== undefined ? style.fontStyle === 'italic' : undefined);
+    const fillVal = style.fill || style.textColor || style.color;
+    const bgVal = style.backgroundColor !== undefined ? style.backgroundColor : style.textBackground;
+    const lhVal = style.lineHeight !== undefined ? style.lineHeight : style.lineSpacing;
+    const alignVal = style.textAlign;
+    const fontVal = style.fontFamily;
+    const sizeVal = style.fontSize ? Number(style.fontSize) : undefined;
+    const underlineVal = style.underline !== undefined ? Boolean(style.underline) : undefined;
+
+    // Update internal text settings state
+    this.textSettings = {
+      ...this.textSettings,
+      ...(fontVal ? { fontFamily: fontVal } : {}),
+      ...(sizeVal ? { fontSize: sizeVal } : {}),
+      ...(fillVal ? { fill: fillVal } : {}),
+      ...(boldVal !== undefined ? { bold: Boolean(boldVal) } : {}),
+      ...(italicVal !== undefined ? { italic: Boolean(italicVal) } : {}),
+      ...(underlineVal !== undefined ? { underline: Boolean(underlineVal) } : {}),
+      ...(alignVal ? { textAlign: alignVal } : {}),
+      ...(bgVal !== undefined ? { backgroundColor: bgVal } : {}),
+      ...(lhVal !== undefined ? { lineHeight: Number(lhVal) } : {}),
+    };
+    this.notifyTextSettings(this.textSettings);
+
     if (!this.canvas) return;
-    const active = this.canvas.getActiveObject() as any;
+    let active = this.canvas.getActiveObject() as any;
+    if (!active && this.lastSelectedObjectId) {
+      active = this.canvas.getObjects().find((o: any) => (o as any).id === this.lastSelectedObjectId);
+      if (active) {
+        this.canvas.setActiveObject(active);
+      }
+    }
     if (!active) return;
 
     if (active.isPixelForgeSticky || active.stickyNoteData) {
       const { headerText, bodyText, allTexts } = getStickyTextChildren(active);
       const sub = (active as any)._activeSubTarget;
 
-      if (style.fontFamily) {
+      if (fontVal) {
         if (sub) {
-          sub.set('fontFamily', style.fontFamily);
+          sub.set('fontFamily', fontVal);
           if (active.stickyNoteData) {
-            if (sub.stickyPart === 'header') active.stickyNoteData.headerFont = style.fontFamily;
-            else active.stickyNoteData.bodyFont = style.fontFamily;
+            if (sub.stickyPart === 'header') active.stickyNoteData.headerFont = fontVal;
+            else active.stickyNoteData.bodyFont = fontVal;
           }
         } else {
-          allTexts.forEach((t) => t.set('fontFamily', style.fontFamily));
+          allTexts.forEach((t) => t.set('fontFamily', fontVal));
           if (active.stickyNoteData) {
-            active.stickyNoteData.headerFont = style.fontFamily;
-            active.stickyNoteData.bodyFont = style.fontFamily;
+            active.stickyNoteData.headerFont = fontVal;
+            active.stickyNoteData.bodyFont = fontVal;
           }
         }
       }
-      if (style.fontSize) {
+      if (sizeVal) {
         if (sub) {
-          sub.set('fontSize', style.fontSize);
+          sub.set('fontSize', sizeVal);
           if (active.stickyNoteData) {
-            if (sub.stickyPart === 'header') active.stickyNoteData.headerSize = style.fontSize;
-            else active.stickyNoteData.bodySize = style.fontSize;
+            if (sub.stickyPart === 'header') active.stickyNoteData.headerSize = sizeVal;
+            else active.stickyNoteData.bodySize = sizeVal;
           }
         } else {
-          if (headerText) headerText.set('fontSize', style.fontSize);
-          if (bodyText) bodyText.set('fontSize', Math.max(12, Math.round(style.fontSize * 0.72)));
+          if (headerText) headerText.set('fontSize', sizeVal);
+          if (bodyText) bodyText.set('fontSize', Math.max(12, Math.round(sizeVal * 0.72)));
           if (active.stickyNoteData) {
-            active.stickyNoteData.headerSize = style.fontSize;
-            active.stickyNoteData.bodySize = Math.max(12, Math.round(style.fontSize * 0.72));
+            active.stickyNoteData.headerSize = sizeVal;
+            active.stickyNoteData.bodySize = Math.max(12, Math.round(sizeVal * 0.72));
           }
         }
       }
-      if (style.fill) {
+      if (fillVal) {
         if (sub) {
-          sub.set('fill', style.fill);
+          sub.set('fill', fillVal);
           if (active.stickyNoteData) {
-            if (sub.stickyPart === 'header') active.stickyNoteData.headerColor = style.fill;
-            else active.stickyNoteData.bodyColor = style.fill;
+            if (sub.stickyPart === 'header') active.stickyNoteData.headerColor = fillVal;
+            else active.stickyNoteData.bodyColor = fillVal;
           }
         } else {
-          allTexts.forEach((t) => t.set('fill', style.fill));
+          allTexts.forEach((t) => t.set('fill', fillVal));
           if (active.stickyNoteData) {
-            active.stickyNoteData.headerColor = style.fill;
-            active.stickyNoteData.bodyColor = style.fill;
+            active.stickyNoteData.headerColor = fillVal;
+            active.stickyNoteData.bodyColor = fillVal;
           }
         }
       }
-      if (style.bold !== undefined) {
-        const wt = style.bold ? 'bold' : 'normal';
+      if (boldVal !== undefined) {
+        const wt = boldVal ? 'bold' : 'normal';
         if (sub) sub.set('fontWeight', wt);
         else allTexts.forEach((t) => t.set('fontWeight', wt));
       }
-      if (style.italic !== undefined) {
-        const fs = style.italic ? 'italic' : 'normal';
+      if (italicVal !== undefined) {
+        const fs = italicVal ? 'italic' : 'normal';
         if (sub) sub.set('fontStyle', fs);
         else allTexts.forEach((t) => t.set('fontStyle', fs));
       }
-      if (style.underline !== undefined) {
-        const ul = Boolean(style.underline);
-        if (sub) sub.set('underline', ul);
-        else allTexts.forEach((t) => t.set('underline', ul));
+      if (underlineVal !== undefined) {
+        if (sub) sub.set('underline', underlineVal);
+        else allTexts.forEach((t) => t.set('underline', underlineVal));
       }
-      if (style.textAlign) {
-        if (sub) sub.set('textAlign', style.textAlign);
-        else allTexts.forEach((t) => t.set('textAlign', style.textAlign));
+      if (alignVal) {
+        if (sub) sub.set('textAlign', alignVal);
+        else allTexts.forEach((t) => t.set('textAlign', alignVal));
       }
       allTexts.forEach((t) => {
         t.dirty = true;
@@ -1041,15 +1146,17 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
 
       if (isEditingWithSelection && selStart !== undefined && selEnd !== undefined && selStart !== selEnd) {
         const patch: any = {};
-        if (style.fontFamily !== undefined) patch.fontFamily = style.fontFamily;
-        if (style.fontSize !== undefined) patch.fontSize = style.fontSize;
-        if (style.fill !== undefined) patch.fill = style.fill;
-        if (style.bold !== undefined) patch.fontWeight = style.bold ? 'bold' : 'normal';
-        if (style.italic !== undefined) patch.fontStyle = style.italic ? 'italic' : 'normal';
-        if (style.underline !== undefined) patch.underline = Boolean(style.underline);
-        if (style.backgroundColor !== undefined) {
-          patch.textBackgroundColor = style.backgroundColor === 'transparent' ? '' : style.backgroundColor;
+        if (fontVal !== undefined) patch.fontFamily = fontVal;
+        if (sizeVal !== undefined) patch.fontSize = sizeVal;
+        if (fillVal !== undefined) patch.fill = fillVal;
+        if (boldVal !== undefined) patch.fontWeight = boldVal ? 'bold' : 'normal';
+        if (italicVal !== undefined) patch.fontStyle = italicVal ? 'italic' : 'normal';
+        if (underlineVal !== undefined) patch.underline = underlineVal;
+        if (bgVal !== undefined) {
+          patch.textBackgroundColor = bgVal === 'transparent' ? '' : bgVal;
         }
+        if (lhVal !== undefined) patch.lineHeight = lhVal;
+
         if (typeof active.setSelectionStyles === 'function' && active.isEditing) {
           active.setSelectionStyles(patch);
         } else if (typeof active.text === 'string') {
@@ -1071,19 +1178,19 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
         }
       } else {
         const updates: any = {};
-        if (style.fontFamily !== undefined) updates.fontFamily = style.fontFamily;
-        if (style.fontSize !== undefined) updates.fontSize = style.fontSize;
-        if (style.fill !== undefined) updates.fill = style.fill;
-        if (style.bold !== undefined) updates.fontWeight = style.bold ? 'bold' : 'normal';
-        if (style.italic !== undefined) updates.fontStyle = style.italic ? 'italic' : 'normal';
-        if (style.underline !== undefined) updates.underline = Boolean(style.underline);
-        if (style.textAlign !== undefined) updates.textAlign = style.textAlign;
-        if (style.backgroundColor !== undefined) {
-          const bgVal = style.backgroundColor === 'transparent' ? '' : style.backgroundColor;
-          updates.textBackgroundColor = bgVal;
-          updates.backgroundColor = bgVal;
+        if (fontVal !== undefined) updates.fontFamily = fontVal;
+        if (sizeVal !== undefined) updates.fontSize = sizeVal;
+        if (fillVal !== undefined) updates.fill = fillVal;
+        if (boldVal !== undefined) updates.fontWeight = boldVal ? 'bold' : 'normal';
+        if (italicVal !== undefined) updates.fontStyle = italicVal ? 'italic' : 'normal';
+        if (underlineVal !== undefined) updates.underline = underlineVal;
+        if (alignVal !== undefined) updates.textAlign = alignVal;
+        if (bgVal !== undefined) {
+          const bgTextVal = bgVal === 'transparent' ? '' : bgVal;
+          updates.textBackgroundColor = bgTextVal;
+          updates.backgroundColor = bgTextVal;
         }
-        if (style.lineHeight !== undefined) updates.lineHeight = style.lineHeight;
+        if (lhVal !== undefined) updates.lineHeight = lhVal;
 
         active.set(updates);
 
@@ -1359,6 +1466,24 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
       return;
     }
     const canvasObj = this.convertFabricObjectToCanvasObject(selected);
+    this.lastSelectedObjectId = canvasObj.id || null;
+
+    if (canvasObj.type === 'text' || canvasObj.type === 'sticky') {
+      const nextSettings: TextFormattingSettings = {
+        fontFamily: canvasObj.fontFamily || this.textSettings.fontFamily || 'Arial',
+        fontSize: canvasObj.fontSize || this.textSettings.fontSize || 24,
+        fill: canvasObj.fillColor || canvasObj.strokeColor || this.textSettings.fill || '#302633',
+        bold: canvasObj.fontWeight === 'bold',
+        italic: canvasObj.fontStyle === 'italic',
+        underline: Boolean(canvasObj.underline),
+        textAlign: (canvasObj.textAlign as any) || this.textSettings.textAlign || 'left',
+        backgroundColor: canvasObj.backgroundColor || 'transparent',
+        lineHeight: canvasObj.lineHeight || this.textSettings.lineHeight || 1.2,
+      };
+      this.textSettings = nextSettings;
+      this.notifyTextSettings(nextSettings);
+    }
+
     this.notifyActiveObject(selected);
     for (const listener of this.selectionListeners) {
       listener(canvasObj.id, canvasObj);
@@ -1407,7 +1532,7 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
     let backgroundColor = '';
     let template = 'sunny';
     let fillColor = (typeof obj.fill === 'string' && obj.fill) ? obj.fill : (obj.fill === null || obj.fill === '' || obj.fill === 'transparent' ? 'transparent' : undefined);
-    let strokeColor = typeof obj.stroke === 'string' ? obj.stroke : undefined;
+    let strokeColor = (typeof obj.stroke === 'string' && obj.stroke) ? obj.stroke : (obj.stroke === null || obj.stroke === '' || obj.stroke === 'transparent' ? 'transparent' : undefined);
     let strokeWidth = typeof obj.strokeWidth === 'number' ? obj.strokeWidth : 2;
 
     if (obj.type === 'activeselection') {
@@ -1415,7 +1540,7 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
       const firstChild = children[0];
       if (firstChild) {
         fillColor = (typeof firstChild.fill === 'string' && firstChild.fill) ? firstChild.fill : (firstChild.fill === null || firstChild.fill === '' || firstChild.fill === 'transparent' ? 'transparent' : undefined);
-        strokeColor = typeof firstChild.stroke === 'string' ? firstChild.stroke : undefined;
+        strokeColor = (typeof firstChild.stroke === 'string' && firstChild.stroke) ? firstChild.stroke : (firstChild.stroke === null || firstChild.stroke === '' || firstChild.stroke === 'transparent' ? 'transparent' : undefined);
         strokeWidth = typeof firstChild.strokeWidth === 'number' ? firstChild.strokeWidth : 2;
       }
     } else if (type === 'sticky') {
@@ -1451,7 +1576,11 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
     } else if (type === 'arrow') {
       const line = (obj as any).getObjects?.().find((o: any) => o.type === 'line');
       strokeColor = line?.stroke || '#F26B5B';
-      strokeWidth = line?.strokeWidth || 2;
+      strokeWidth = typeof line?.strokeWidth === 'number' ? line.strokeWidth : 2;
+      fillColor = 'transparent';
+    } else if (type === 'line') {
+      strokeColor = typeof obj.stroke === 'string' ? obj.stroke : '#F26B5B';
+      strokeWidth = typeof obj.strokeWidth === 'number' ? obj.strokeWidth : 2;
       fillColor = 'transparent';
     }
 
@@ -1825,12 +1954,16 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
         const textObj = new Textbox('Type something...', {
           left: point.x,
           top: point.y,
-          width: 240,
-          fontFamily: 'Arial',
-          fontSize: this.styleConfig.fontSize || 22,
-          fill: this.styleConfig.strokeColor || '#1E293B',
-          fontWeight: this.styleConfig.fontWeight || 'normal',
-          textAlign: this.styleConfig.textAlign || 'left',
+          width: 260,
+          fontFamily: this.textSettings.fontFamily || 'Arial',
+          fontSize: this.textSettings.fontSize || 24,
+          fill: this.textSettings.fill || '#302633',
+          fontWeight: this.textSettings.bold ? 'bold' : 'normal',
+          fontStyle: this.textSettings.italic ? 'italic' : 'normal',
+          underline: Boolean(this.textSettings.underline),
+          textAlign: this.textSettings.textAlign || 'left',
+          backgroundColor: this.textSettings.backgroundColor === 'transparent' ? '' : this.textSettings.backgroundColor,
+          lineHeight: this.textSettings.lineHeight || 1.2,
           editable: true,
           splitByGrapheme: true,
           objectCaching: false,
@@ -2172,15 +2305,17 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
     this.windowResizeHandler = handleResize;
   }
 
-  private createShapeAtPoint(shape: ShapeSubtype, point: { x: number; y: number }) {
+  public createShapeAtPoint(shape: ShapeSubtype, point: { x: number; y: number }) {
     if (!this.canvas) return;
     let shapeObj: FabricObject | null = null;
-    const stroke = this.styleConfig.strokeColor || '#F26B5B';
+    const stroke = (this.defaultShapeConfig.strokeColor === 'transparent' || this.defaultShapeConfig.strokeColor === 'none')
+      ? 'transparent'
+      : (this.defaultShapeConfig.strokeColor || '#F26B5B');
     const fill =
-      this.styleConfig.fillColor === 'transparent'
+      (this.defaultShapeConfig.fillColor === 'transparent' || !this.defaultShapeConfig.fillColor || this.defaultShapeConfig.fillColor === 'none')
         ? 'transparent'
-        : this.styleConfig.fillColor || '#EEF2FF';
-    const strokeWidth = this.styleConfig.strokeWidth || 2;
+        : (this.defaultShapeConfig.fillColor || '#EEF2FF');
+    const strokeWidth = this.defaultShapeConfig.strokeWidth !== undefined ? Math.max(0, this.defaultShapeConfig.strokeWidth) : 2;
 
     switch (shape) {
       case 'circle':

@@ -218,6 +218,16 @@ export interface CanvasEngineContract {
   applyTextStyle?(style: Partial<TextFormattingSettings>): void;
 
   /**
+   * Sets the active text formatting settings used for text creation and selected text.
+   */
+  setTextSettings?(settings: Partial<TextFormattingSettings>): void;
+
+  /**
+   * Subscribes to text formatting settings changes.
+   */
+  onTextSettingsChange?(listener: (settings: TextFormattingSettings) => void): () => void;
+
+  /**
    * Highlights selected characters in text editing mode.
    */
   highlightSelectedText?(color?: string): void;

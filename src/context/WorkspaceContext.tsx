@@ -91,6 +91,10 @@ export interface WorkspaceContextValue {
   setIsStickyGalleryOpen: (open: boolean) => void;
   isBrushStudioOpen: boolean;
   setIsBrushStudioOpen: (open: boolean) => void;
+  textSettings: TextFormattingSettings;
+  updateTextSettings: (settings: Partial<TextFormattingSettings>) => void;
+  isTextPopoverOpen: boolean;
+  setIsTextPopoverOpen: (open: boolean) => void;
   applyTextStyle: (style: Partial<TextFormattingSettings>) => void;
   highlightSelectedText: (color?: string) => void;
   highlightWholeText: (color?: string) => void;
@@ -221,6 +225,20 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
     canUndo: false,
     canRedo: false,
   });
+
+  // Text formatting state
+  const [textSettings, setTextSettingsState] = useState<TextFormattingSettings>({
+    fontFamily: 'Arial',
+    fontSize: 24,
+    fill: '#302633',
+    bold: false,
+    italic: false,
+    underline: false,
+    textAlign: 'left',
+    backgroundColor: 'transparent',
+    lineHeight: 1.2,
+  });
+  const [isTextPopoverOpen, setIsTextPopoverOpen] = useState<boolean>(false);
 
   // Preview Mode & Mock Selection (false defaults to real Fabric.js canvas engine)
   const [isUIPreviewMode, setIsUIPreviewMode] = useState<boolean>(false);
@@ -399,12 +417,34 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
   );
 
   const applyTextStyle = useCallback(
-    (style: Partial<TextFormattingSettings>) => {
+    (style: Partial<TextFormattingSettings> & Record<string, any>) => {
+      setTextSettingsState((prev) => ({
+        ...prev,
+        ...(style.fontFamily ? { fontFamily: style.fontFamily } : {}),
+        ...(style.fontSize ? { fontSize: Number(style.fontSize) } : {}),
+        ...(style.fill || style.textColor ? { fill: style.fill || style.textColor } : {}),
+        ...(style.bold !== undefined ? { bold: Boolean(style.bold) } : style.fontWeight !== undefined ? { bold: style.fontWeight === 'bold' } : {}),
+        ...(style.italic !== undefined ? { italic: Boolean(style.italic) } : style.fontStyle !== undefined ? { italic: style.fontStyle === 'italic' } : {}),
+        ...(style.underline !== undefined ? { underline: Boolean(style.underline) } : {}),
+        ...(style.textAlign ? { textAlign: style.textAlign } : {}),
+        ...(style.backgroundColor !== undefined ? { backgroundColor: style.backgroundColor } : style.textBackground !== undefined ? { backgroundColor: style.textBackground } : {}),
+        ...(style.lineHeight !== undefined ? { lineHeight: Number(style.lineHeight) } : style.lineSpacing !== undefined ? { lineHeight: Number(style.lineSpacing) } : {}),
+      }));
       if (canvasEngine.applyTextStyle) {
         canvasEngine.applyTextStyle(style);
       }
     },
     [canvasEngine]
+  );
+
+  const updateTextSettings = useCallback(
+    (settings: Partial<TextFormattingSettings>) => {
+      applyTextStyle(settings);
+      if (canvasEngine.setTextSettings) {
+        canvasEngine.setTextSettings(settings);
+      }
+    },
+    [applyTextStyle, canvasEngine]
   );
 
   const highlightSelectedText = useCallback(
@@ -484,15 +524,30 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
           if (selectedObj) {
             setStyleConfig((prev) => ({
               ...prev,
-              strokeColor: selectedObj.strokeColor || prev.strokeColor,
-              fillColor: selectedObj.fillColor || prev.fillColor,
-              strokeWidth: selectedObj.strokeWidth || prev.strokeWidth,
+              strokeColor: selectedObj.strokeColor !== undefined ? selectedObj.strokeColor : prev.strokeColor,
+              fillColor: selectedObj.fillColor !== undefined ? selectedObj.fillColor : prev.fillColor,
+              strokeWidth: selectedObj.strokeWidth !== undefined ? selectedObj.strokeWidth : prev.strokeWidth,
               stickyColor: selectedObj.stickyColor || prev.stickyColor,
               opacity: selectedObj.opacity !== undefined ? selectedObj.opacity : prev.opacity,
               fontSize: selectedObj.fontSize || prev.fontSize,
               fontWeight: selectedObj.fontWeight || prev.fontWeight,
               textAlign: selectedObj.textAlign || prev.textAlign,
             }));
+
+            if (selectedObj.type === 'text' || selectedObj.type === 'sticky') {
+              setTextSettingsState((prev) => ({
+                ...prev,
+                fontFamily: selectedObj.fontFamily || prev.fontFamily,
+                fontSize: selectedObj.fontSize || prev.fontSize,
+                fill: selectedObj.fillColor || selectedObj.strokeColor || prev.fill,
+                bold: selectedObj.fontWeight === 'bold',
+                italic: selectedObj.fontStyle === 'italic',
+                underline: Boolean(selectedObj.underline),
+                textAlign: (selectedObj.textAlign as any) || prev.textAlign,
+                backgroundColor: selectedObj.backgroundColor || 'transparent',
+                lineHeight: selectedObj.lineHeight || prev.lineHeight,
+              }));
+            }
           }
         })
       : () => {};
@@ -505,6 +560,10 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       ? canvasEngine.onBrushSettingsChange(setBrushSettingsState)
       : () => {};
 
+    const unsubText = canvasEngine.onTextSettingsChange
+      ? canvasEngine.onTextSettingsChange(setTextSettingsState)
+      : () => {};
+
     return () => {
       unsubReadiness();
       unsubUndoRedo();
@@ -514,6 +573,7 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       unsubSelection();
       unsubBounds();
       unsubBrush();
+      unsubText();
     };
   }, [canvasEngine]);
 
@@ -608,9 +668,9 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
         if (found) {
           setStyleConfig((prev) => ({
             ...prev,
-            strokeColor: found.strokeColor || prev.strokeColor,
-            fillColor: found.fillColor || prev.fillColor,
-            strokeWidth: found.strokeWidth || prev.strokeWidth,
+            strokeColor: found.strokeColor !== undefined ? found.strokeColor : prev.strokeColor,
+            fillColor: found.fillColor !== undefined ? found.fillColor : prev.fillColor,
+            strokeWidth: found.strokeWidth !== undefined ? found.strokeWidth : prev.strokeWidth,
             stickyColor: found.stickyColor || prev.stickyColor,
             opacity: found.opacity !== undefined ? found.opacity : prev.opacity,
             fontSize: found.fontSize || prev.fontSize,
@@ -1158,6 +1218,10 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       setIsStickyGalleryOpen,
       isBrushStudioOpen,
       setIsBrushStudioOpen,
+      textSettings,
+      updateTextSettings,
+      isTextPopoverOpen,
+      setIsTextPopoverOpen,
       applyTextStyle,
       highlightSelectedText,
       highlightWholeText,
@@ -1244,6 +1308,10 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       setIsStickyGalleryOpen,
       isBrushStudioOpen,
       setIsBrushStudioOpen,
+      textSettings,
+      updateTextSettings,
+      isTextPopoverOpen,
+      setIsTextPopoverOpen,
       applyTextStyle,
       highlightSelectedText,
       highlightWholeText,

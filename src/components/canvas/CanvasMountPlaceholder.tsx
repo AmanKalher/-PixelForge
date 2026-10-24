@@ -38,6 +38,10 @@ export const CanvasMountPlaceholder: React.FC = () => {
 
       // 2. Attach to adapter contract (starts with clean empty workspace)
       globalFabricCanvasAdapter.attachCanvas(canvas);
+      if (typeof window !== 'undefined') {
+        (window as any).__fabricCanvas = canvas;
+        (window as any).__canvasAdapter = globalFabricCanvasAdapter;
+      }
 
       // 3. Handle container resize dynamically
       resizeObserver = new ResizeObserver((entries) => {

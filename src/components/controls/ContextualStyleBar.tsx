@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { STICKY_TEMPLATES } from '../../engine/stickyNoteTemplates';
+import { TextFormattingToolbar } from '../toolbar/TextFormattingToolbar';
 import {
   ChevronDown,
   MoreHorizontal,
@@ -8,12 +9,6 @@ import {
   Trash2,
   Layers,
   Check,
-  Bold,
-  Italic,
-  Underline,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
   Square,
   Circle,
   StickyNote,
@@ -28,16 +23,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 
-const FONTS = [
-  'Plus Jakarta Sans',
-  'Arial',
-  'Georgia',
-  'Verdana',
-  'Trebuchet MS',
-  'Courier New',
-  'Times New Roman',
-];
-
 export const ContextualStyleBar: React.FC = () => {
   const {
     activeTool,
@@ -47,7 +32,6 @@ export const ContextualStyleBar: React.FC = () => {
     deleteSelected,
     bringForwardSelected,
     sendBackwardSelected,
-    applyTextStyle,
     highlightSelectedText,
     highlightWholeText,
     changeStickyTemplate,
@@ -62,9 +46,6 @@ export const ContextualStyleBar: React.FC = () => {
   const [isStrokePickerOpen, setIsStrokePickerOpen] = useState(false);
   const [isWidthMenuOpen, setIsWidthMenuOpen] = useState(false);
   const [isOpacityMenuOpen, setIsOpacityMenuOpen] = useState(false);
-  const [isFontSizeMenuOpen, setIsFontSizeMenuOpen] = useState(false);
-  const [isFontFamilyMenuOpen, setIsFontFamilyMenuOpen] = useState(false);
-  const [isLineSpacingMenuOpen, setIsLineSpacingMenuOpen] = useState(false);
   const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
 
@@ -72,11 +53,62 @@ export const ContextualStyleBar: React.FC = () => {
   const strokeRef = useRef<HTMLDivElement>(null);
   const widthRef = useRef<HTMLDivElement>(null);
   const opacityRef = useRef<HTMLDivElement>(null);
-  const fontSizeRef = useRef<HTMLDivElement>(null);
-  const fontFamilyRef = useRef<HTMLDivElement>(null);
-  const lineSpacingRef = useRef<HTMLDivElement>(null);
   const templateRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLDivElement>(null);
+
+  const toggleFillPicker = () => {
+    setIsStrokePickerOpen(false);
+    setIsWidthMenuOpen(false);
+    setIsOpacityMenuOpen(false);
+    setIsTemplateMenuOpen(false);
+    setIsMoreMenuOpen(false);
+    setIsFillPickerOpen((prev) => !prev);
+  };
+
+  const toggleStrokePicker = () => {
+    setIsFillPickerOpen(false);
+    setIsWidthMenuOpen(false);
+    setIsOpacityMenuOpen(false);
+    setIsTemplateMenuOpen(false);
+    setIsMoreMenuOpen(false);
+    setIsStrokePickerOpen((prev) => !prev);
+  };
+
+  const toggleWidthMenu = () => {
+    setIsFillPickerOpen(false);
+    setIsStrokePickerOpen(false);
+    setIsOpacityMenuOpen(false);
+    setIsTemplateMenuOpen(false);
+    setIsMoreMenuOpen(false);
+    setIsWidthMenuOpen((prev) => !prev);
+  };
+
+  const toggleOpacityMenu = () => {
+    setIsFillPickerOpen(false);
+    setIsStrokePickerOpen(false);
+    setIsWidthMenuOpen(false);
+    setIsTemplateMenuOpen(false);
+    setIsMoreMenuOpen(false);
+    setIsOpacityMenuOpen((prev) => !prev);
+  };
+
+  const toggleTemplateMenu = () => {
+    setIsFillPickerOpen(false);
+    setIsStrokePickerOpen(false);
+    setIsWidthMenuOpen(false);
+    setIsOpacityMenuOpen(false);
+    setIsMoreMenuOpen(false);
+    setIsTemplateMenuOpen((prev) => !prev);
+  };
+
+  const toggleMoreMenu = () => {
+    setIsFillPickerOpen(false);
+    setIsStrokePickerOpen(false);
+    setIsWidthMenuOpen(false);
+    setIsOpacityMenuOpen(false);
+    setIsTemplateMenuOpen(false);
+    setIsMoreMenuOpen((prev) => !prev);
+  };
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -86,9 +118,6 @@ export const ContextualStyleBar: React.FC = () => {
       if (strokeRef.current && !strokeRef.current.contains(target)) setIsStrokePickerOpen(false);
       if (widthRef.current && !widthRef.current.contains(target)) setIsWidthMenuOpen(false);
       if (opacityRef.current && !opacityRef.current.contains(target)) setIsOpacityMenuOpen(false);
-      if (fontSizeRef.current && !fontSizeRef.current.contains(target)) setIsFontSizeMenuOpen(false);
-      if (fontFamilyRef.current && !fontFamilyRef.current.contains(target)) setIsFontFamilyMenuOpen(false);
-      if (lineSpacingRef.current && !lineSpacingRef.current.contains(target)) setIsLineSpacingMenuOpen(false);
       if (templateRef.current && !templateRef.current.contains(target)) setIsTemplateMenuOpen(false);
       if (moreRef.current && !moreRef.current.contains(target)) setIsMoreMenuOpen(false);
     };
@@ -145,20 +174,18 @@ export const ContextualStyleBar: React.FC = () => {
 
   const strokeWidths = [1, 2, 4, 8, 12];
   const opacities = [1, 0.75, 0.5, 0.25];
-  const fontSizes = [12, 14, 16, 18, 20, 24, 28, 32, 40, 48];
-  const lineSpacings = [0.9, 1.0, 1.2, 1.5, 1.8, 2.0];
 
   const fillPresets = [
     'transparent',
     '#FFF9F0',
     '#FFFFFF',
     '#FFF0ED',
+    '#F26B5B',
     '#F7D774',
     '#A8B9A0',
     '#6D3B67',
     '#ECFDF5',
     '#FEF08A',
-    '#FED7AA',
   ];
 
   const strokePresets = [
@@ -196,13 +223,6 @@ export const ContextualStyleBar: React.FC = () => {
     : (selectedObject?.strokeColor ?? styleConfig.strokeColor ?? '#F26B5B');
   const currentWidth = selectedObject?.strokeWidth ?? styleConfig.strokeWidth ?? 2;
   const currentOpacity = selectedObject?.opacity !== undefined ? selectedObject.opacity : (styleConfig.opacity ?? 1);
-  const currentFontFamily = selectedObject?.fontFamily || 'Arial';
-  const currentFontSize = selectedObject?.fontSize || styleConfig.fontSize || 20;
-  const isBold = selectedObject ? selectedObject.fontWeight === 'bold' : (styleConfig.fontWeight === 'bold');
-  const isItalic = selectedObject ? selectedObject.fontStyle === 'italic' : false;
-  const isUnderline = selectedObject ? Boolean(selectedObject.underline) : false;
-  const currentTextAlign = selectedObject?.textAlign || styleConfig.textAlign || 'left';
-  const currentLineHeight = selectedObject?.lineHeight || 1.2;
   const currentStickyTemplate = selectedObject?.template || 'sunny';
 
   // Dynamic positioning calculation
@@ -242,10 +262,15 @@ export const ContextualStyleBar: React.FC = () => {
     };
   }
 
+  const currentTopNumeric = stylePosition.top ? parseInt(String(stylePosition.top), 10) : 100;
+  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const opensUpward = currentTopNumeric > (viewportHeight - 260);
+  const popoverPositionClass = opensUpward ? 'bottom-full mb-2' : 'top-full mt-2';
+
   return (
     <div
       style={stylePosition}
-      className="fixed z-20 rounded-full shadow-lg bg-white/95 backdrop-blur-xs border border-[#EFE5D8] px-3 py-1.5 flex items-center gap-2 select-none animate-in fade-in zoom-in-95 duration-100 max-w-[96vw] overflow-x-auto transition-all text-[#302633]"
+      className="fixed z-20 rounded-full shadow-lg bg-white/95 backdrop-blur-xs border border-[#EFE5D8] px-3 py-1.5 flex items-center gap-2 select-none animate-in fade-in zoom-in-95 duration-100 max-w-[96vw] overflow-visible transition-all text-[#302633]"
       role="toolbar"
       aria-label="Contextual style bar"
     >
@@ -262,7 +287,7 @@ export const ContextualStyleBar: React.FC = () => {
         <div className="relative shrink-0" ref={templateRef}>
           <button
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setIsTemplateMenuOpen(!isTemplateMenuOpen)}
+            onClick={toggleTemplateMenu}
             className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 transition text-xs font-medium cursor-pointer"
             title="Switch Sticky Note Template"
           >
@@ -271,7 +296,7 @@ export const ContextualStyleBar: React.FC = () => {
           </button>
 
           {isTemplateMenuOpen && (
-            <div className="absolute top-8 left-0 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 z-50 w-52 text-xs space-y-1 animate-in fade-in zoom-in-95 duration-100">
+            <div className={`absolute ${popoverPositionClass} left-0 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 z-50 w-52 text-xs space-y-1 animate-in fade-in zoom-in-95 duration-100`}>
               <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 Select Template
               </div>
@@ -305,443 +330,316 @@ export const ContextualStyleBar: React.FC = () => {
         </div>
       )}
 
-      {/* 2. TEXT & STICKY: Font Family Picker */}
-      {isTextBearing && (
-        <div className="relative shrink-0" ref={fontFamilyRef}>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setIsFontFamilyMenuOpen(!isFontFamilyMenuOpen)}
-            className="flex items-center gap-1 px-2 py-1 rounded-full hover:bg-slate-100 transition text-xs font-medium text-slate-700"
-            title="Font Family"
-          >
-            <span style={{ fontFamily: currentFontFamily }}>{currentFontFamily}</span>
-            <ChevronDown className="w-2.5 h-2.5 text-slate-400" />
-          </button>
-
-          {isFontFamilyMenuOpen && (
-            <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-white border border-slate-200 rounded-xl shadow-xl p-1 z-50 w-36 text-xs animate-in fade-in zoom-in-95 duration-100">
-              {FONTS.map((f) => (
-                <button
-                  key={f}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    applyTextStyle({ fontFamily: f });
-                    setIsFontFamilyMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-2.5 py-1.5 rounded-md transition cursor-pointer ${
-                    currentFontFamily === f
-                      ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
-                      : 'hover:bg-[#FFF9F0] text-[#302633]'
-                  }`}
-                  style={{ fontFamily: f }}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 3. SHAPES (fillable): Fill Color Picker */}
-      {isFillableShape && (
-        <div className="relative shrink-0" ref={fillRef}>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setIsFillPickerOpen(!isFillPickerOpen)}
-            className="flex items-center gap-1 px-1.5 py-1 rounded-full hover:bg-slate-100 transition text-xs font-medium text-slate-700 cursor-pointer"
-            title="Fill color"
-          >
-            <span
-              className="w-4 h-4 rounded-full border border-slate-300 shadow-2xs block"
-              style={{
-                backgroundColor: currentFill === 'transparent' ? '#FFFFFF' : currentFill,
-              }}
-            />
-            <span className="text-[11px] hidden sm:inline">Fill</span>
-            <ChevronDown className="w-2.5 h-2.5 text-slate-400" />
-          </button>
-
-          {isFillPickerOpen && (
-            <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-white border border-slate-200 rounded-xl shadow-xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100 w-44">
-              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                Fill Color
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                {fillPresets.map((c) => (
-                  <button
-                    key={c}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => {
-                      updateStyle({ fillColor: c });
-                      setIsFillPickerOpen(false);
-                    }}
-                    className="w-6 h-6 rounded-full border border-slate-200 flex items-center justify-center transition hover:scale-110 shadow-2xs cursor-pointer"
-                    style={{ backgroundColor: c === 'transparent' ? '#ffffff' : c }}
-                    title={c === 'transparent' ? 'Hollow / Transparent' : c}
-                  >
-                    {currentFill.toLowerCase() === c.toLowerCase() && (
-                      <Check className="w-3 h-3 text-slate-700" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 4. TEXT ONLY: Text Background Color Picker */}
-      {isText && (
-        <div className="relative shrink-0" ref={fillRef}>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setIsFillPickerOpen(!isFillPickerOpen)}
-            className="flex items-center gap-1 px-1.5 py-1 rounded-full hover:bg-slate-100 transition text-xs font-medium text-slate-700 cursor-pointer"
-            title="Text background color"
-          >
-            <span
-              className="w-4 h-4 rounded-full border border-slate-300 shadow-2xs block"
-              style={{
-                backgroundColor:
-                  selectedObject?.backgroundColor && selectedObject.backgroundColor !== 'transparent'
-                    ? selectedObject.backgroundColor
-                    : '#FFFFFF',
-              }}
-            />
-            <span className="text-[11px] hidden sm:inline">Text BG</span>
-            <ChevronDown className="w-2.5 h-2.5 text-slate-400" />
-          </button>
-
-          {isFillPickerOpen && (
-            <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-white border border-slate-200 rounded-xl shadow-xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100 w-44">
-              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                Text Background
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                {fillPresets.map((c) => (
-                  <button
-                    key={c}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => {
-                      applyTextStyle({ backgroundColor: c });
-                      setIsFillPickerOpen(false);
-                    }}
-                    className="w-6 h-6 rounded-full border border-slate-200 flex items-center justify-center transition hover:scale-110 shadow-2xs cursor-pointer"
-                    style={{ backgroundColor: c === 'transparent' ? '#ffffff' : c }}
-                    title={c}
-                  >
-                    {(selectedObject?.backgroundColor || '').toLowerCase() === c.toLowerCase() && (
-                      <Check className="w-3 h-3 text-slate-700" />
-                    )}
-                  </button>
-                ))}
-              </div>
-              <button
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  applyTextStyle({ backgroundColor: 'transparent' });
-                  setIsFillPickerOpen(false);
-                }}
-                className="w-full mt-2 text-center py-1 text-[10px] text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 rounded cursor-pointer"
-              >
-                Clear Background
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 5. STROKE COLOR / TEXT COLOR PICKER */}
-      <div className="relative shrink-0" ref={strokeRef}>
-        <button
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => setIsStrokePickerOpen(!isStrokePickerOpen)}
-          className="flex items-center gap-1 px-1.5 py-1 rounded-full hover:bg-slate-100 transition text-xs font-medium text-slate-700"
-          title={isTextBearing ? 'Text Color' : 'Stroke Color'}
-        >
-          <span
-            className="w-4 h-4 rounded-full border border-slate-300 shadow-2xs block"
-            style={{ backgroundColor: currentStroke }}
-          />
-          <span className="text-[11px] hidden sm:inline">
-            {isTextBearing ? 'Text Color' : 'Stroke'}
-          </span>
-          <ChevronDown className="w-2.5 h-2.5 text-slate-400" />
-        </button>
-
-        {isStrokePickerOpen && (
-          <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-white border border-slate-200 rounded-xl shadow-xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100 w-44">
-            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-              {isTextBearing ? 'Text Color' : 'Stroke Color'}
-            </div>
-            <div className="grid grid-cols-4 gap-2">
-              {strokePresets.map((c) => (
-                <button
-                  key={c}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    if (isTextBearing) {
-                      applyTextStyle({ fill: c });
-                      updateStyle({ strokeColor: c, fillColor: c });
-                    } else {
-                      updateStyle({ strokeColor: c });
-                    }
-                    setIsStrokePickerOpen(false);
-                  }}
-                  className="w-6 h-6 rounded-full border border-slate-200 flex items-center justify-center transition hover:scale-110 shadow-2xs cursor-pointer"
-                  style={{ backgroundColor: c }}
-                  title={c}
-                >
-                  {currentStroke.toLowerCase() === c.toLowerCase() && (
-                    <Check className="w-3 h-3 text-white" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 6. STROKE WIDTH (Shapes & Drawings ONLY - never on text or sticky) */}
-      {!isTextBearing && (
-        <div className="relative shrink-0" ref={widthRef}>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setIsWidthMenuOpen(!isWidthMenuOpen)}
-            className="flex items-center gap-1 px-2 py-1 rounded-full hover:bg-slate-100 transition text-xs font-semibold text-slate-700 cursor-pointer"
-            title="Stroke width"
-          >
-            <span>{currentWidth}px</span>
-            <ChevronDown className="w-3 h-3 text-slate-400" />
-          </button>
-
-          {isWidthMenuOpen && (
-            <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-white border border-[#EFE5D8] rounded-xl shadow-xl p-1 z-50 w-24 text-xs animate-in fade-in zoom-in-95 duration-100">
-              {strokeWidths.map((w) => (
-                <button
-                  key={w}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    updateStyle({ strokeWidth: w });
-                    setIsWidthMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition cursor-pointer ${
-                    currentWidth === w
-                      ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
-                      : 'text-[#302633] hover:bg-[#FFF9F0]'
-                  }`}
-                >
-                  <span>{w}px</span>
-                  {currentWidth === w && <Check className="w-3 h-3 text-[#F26B5B]" />}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 7. OPACITY (All Objects) */}
-      <div className="relative shrink-0" ref={opacityRef}>
-        <button
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => setIsOpacityMenuOpen(!isOpacityMenuOpen)}
-          className="flex items-center gap-1 px-2 py-1 rounded-full hover:bg-[#FFF9F0] transition text-xs font-semibold text-[#302633] cursor-pointer"
-          title="Opacity"
-        >
-          <span>{Math.round(currentOpacity * 100)}%</span>
-          <ChevronDown className="w-3 h-3 text-[#302633]/40" />
-        </button>
-
-          {isOpacityMenuOpen && (
-            <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-white border border-[#EFE5D8] rounded-xl shadow-xl p-1 z-50 w-24 text-xs animate-in fade-in zoom-in-95 duration-100">
-              {opacities.map((op) => (
-                <button
-                  key={op}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    updateStyle({ opacity: op });
-                    setIsOpacityMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition cursor-pointer ${
-                    currentOpacity === op
-                      ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
-                      : 'text-[#302633] hover:bg-[#FFF9F0]'
-                  }`}
-                >
-                  <span>{Math.round(op * 100)}%</span>
-                  {currentOpacity === op && <Check className="w-3 h-3 text-[#F26B5B]" />}
-                </button>
-              ))}
-            </div>
-          )}
-      </div>
-
-      {/* 8. TYPOGRAPHY CONTROLS (Text & Sticky Notes) */}
-      {isTextBearing && (
+      {/* 2. TEXT & STICKY: Complete Text Formatting Toolbar */}
+      {isTextBearing ? (
         <>
-          <div className="h-4 w-px bg-[#EFE5D8] mx-0.5 shrink-0" />
-
-          {/* Font Size */}
-          <div className="relative shrink-0" ref={fontSizeRef}>
+          <TextFormattingToolbar />
+          {isText && (
             <button
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => setIsFontSizeMenuOpen(!isFontSizeMenuOpen)}
-              className="flex items-center gap-1 px-2 py-1 rounded-full hover:bg-[#FFF9F0] transition text-xs font-semibold text-[#302633] cursor-pointer"
-              title="Font size"
+              onClick={() => highlightSelectedText()}
+              className="p-1.5 rounded-full text-amber-600 hover:bg-amber-50 transition shrink-0 cursor-pointer"
+              title="Highlight selected text characters"
+              aria-label="Highlight selected text characters"
             >
-              <span>{currentFontSize}px</span>
-              <ChevronDown className="w-3 h-3 text-[#302633]/40" />
+              <Sparkles className="w-3.5 h-3.5" />
             </button>
-
-            {isFontSizeMenuOpen && (
-              <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-white border border-[#EFE5D8] rounded-xl shadow-xl p-1 z-50 w-24 text-xs max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
-                {fontSizes.map((sz) => (
-                  <button
-                    key={sz}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => {
-                      applyTextStyle({ fontSize: sz });
-                      updateStyle({ fontSize: sz });
-                      setIsFontSizeMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition cursor-pointer ${
-                      currentFontSize === sz
-                        ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
-                        : 'text-[#302633] hover:bg-[#FFF9F0]'
-                    }`}
-                  >
-                    <span>{sz}px</span>
-                    {currentFontSize === sz && <Check className="w-3 h-3 text-[#F26B5B]" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Bold Toggle */}
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              const nextBold = !isBold;
-              updateStyle({ fontWeight: nextBold ? 'bold' : 'normal' });
-              applyTextStyle({ bold: nextBold });
-            }}
-            className={`p-1.5 rounded-full transition shrink-0 cursor-pointer ${
-              isBold
-                ? 'bg-[#FFF0ED] text-[#F26B5B] font-bold ring-1 ring-[#FCD9D3]'
-                : 'text-[#302633]/70 hover:bg-[#FFF9F0]'
-            }`}
-            title="Toggle Bold"
-          >
-            <Bold className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Italic Toggle */}
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              applyTextStyle({ italic: !isItalic });
-            }}
-            className={`p-1.5 rounded-full transition shrink-0 cursor-pointer ${
-              isItalic
-                ? 'bg-[#FFF0ED] text-[#F26B5B] ring-1 ring-[#FCD9D3]'
-                : 'text-[#302633]/70 hover:bg-[#FFF9F0]'
-            }`}
-            title="Toggle Italic"
-          >
-            <Italic className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Underline Toggle */}
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              applyTextStyle({ underline: !isUnderline });
-            }}
-            className={`p-1.5 rounded-full transition shrink-0 cursor-pointer ${
-              isUnderline
-                ? 'bg-[#FFF0ED] text-[#F26B5B] ring-1 ring-[#FCD9D3]'
-                : 'text-[#302633]/70 hover:bg-[#FFF9F0]'
-            }`}
-            title="Toggle Underline"
-          >
-            <Underline className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Text Alignment */}
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              const next =
-                currentTextAlign === 'left'
-                  ? 'center'
-                  : currentTextAlign === 'center'
-                  ? 'right'
-                  : 'left';
-              updateStyle({ textAlign: next });
-              applyTextStyle({ textAlign: next });
-            }}
-            className="p-1.5 rounded-full text-[#302633]/70 hover:bg-[#FFF9F0] transition shrink-0 cursor-pointer"
-            title={`Text alignment: ${currentTextAlign}`}
-          >
-            {currentTextAlign === 'center' ? (
-              <AlignCenter className="w-3.5 h-3.5 text-[#F26B5B]" />
-            ) : currentTextAlign === 'right' ? (
-              <AlignRight className="w-3.5 h-3.5 text-[#F26B5B]" />
-            ) : (
-              <AlignLeft className="w-3.5 h-3.5" />
-            )}
-          </button>
-
-          {/* Line Spacing Dropdown (Standalone text only) */}
-          {isText && (
-            <div className="relative shrink-0" ref={lineSpacingRef}>
+          )}
+        </>
+      ) : (
+        <>
+          {/* 3. SHAPES (fillable): Fill Color Picker */}
+          {isFillableShape && (
+            <div className="relative shrink-0" ref={fillRef}>
               <button
+                type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setIsLineSpacingMenuOpen(!isLineSpacingMenuOpen)}
-                className="flex items-center gap-1 px-1.5 py-1 rounded-full hover:bg-[#FFF9F0] transition text-[11px] font-medium text-[#302633]/70 cursor-pointer"
-                title="Line spacing"
+                onClick={toggleFillPicker}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-full hover:bg-[#FFF9F0] transition text-xs font-medium text-[#302633] cursor-pointer"
+                title="Fill color"
               >
-                <span>{currentLineHeight}x</span>
-                <ChevronDown className="w-2.5 h-2.5 text-[#302633]/40" />
+                <span
+                  className="w-4 h-4 rounded-full border border-slate-300 shadow-2xs block relative overflow-hidden shrink-0"
+                  style={{
+                    backgroundColor: currentFill === 'transparent' ? '#FFFFFF' : currentFill,
+                  }}
+                >
+                  {currentFill === 'transparent' && (
+                    <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <span className="w-[140%] h-0.5 bg-rose-500 rotate-45 block" />
+                    </span>
+                  )}
+                </span>
+                <span className="text-[11px] hidden sm:inline font-semibold">Fill</span>
+                <ChevronDown className="w-2.5 h-2.5 text-slate-400" />
               </button>
 
-              {isLineSpacingMenuOpen && (
-                <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-white border border-[#EFE5D8] rounded-xl shadow-xl p-1 z-50 w-24 text-xs animate-in fade-in zoom-in-95 duration-100">
-                  {lineSpacings.map((ls) => (
+              {isFillPickerOpen && (
+                <div
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className={`absolute ${popoverPositionClass} left-1/2 -translate-x-1/2 bg-white border border-[#EFE5D8] rounded-xl shadow-xl p-3 z-50 animate-in fade-in zoom-in-95 duration-100 w-52`}
+                >
+                  <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    <span>Fill Color</span>
+                    {currentFill === 'transparent' ? (
+                      <span className="text-amber-600 font-medium lowercase">hollow</span>
+                    ) : (
+                      <span className="font-mono text-[9px] lowercase">{currentFill}</span>
+                    )}
+                  </div>
+
+                  {/* Preset Swatches */}
+                  <div className="grid grid-cols-5 gap-1.5 mb-2.5">
+                    {fillPresets.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          updateStyle({ fillColor: c });
+                          setIsFillPickerOpen(false);
+                        }}
+                        className="w-6 h-6 rounded-full border border-slate-200 flex items-center justify-center transition hover:scale-110 shadow-2xs cursor-pointer relative overflow-hidden"
+                        style={{ backgroundColor: c === 'transparent' ? '#ffffff' : c }}
+                        title={c === 'transparent' ? 'No Fill / Transparent' : c}
+                      >
+                        {c === 'transparent' && (
+                          <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <span className="w-[140%] h-0.5 bg-rose-500 rotate-45 block" />
+                          </span>
+                        )}
+                        {currentFill.toLowerCase() === c.toLowerCase() && (
+                          <Check className="w-3 h-3 text-slate-800 relative z-10" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom Picker and Clear Button */}
+                  <div className="flex items-center justify-between pt-2 border-t border-[#F0EAE1]">
+                    <label className="color-control text-xs" onMouseDown={(e) => e.stopPropagation()}>
+                      <span>Custom</span>
+                      <input
+                        type="color"
+                        aria-label="Custom fill color"
+                        value={currentFill === 'transparent' ? '#FFF9F0' : currentFill}
+                        onInput={(e) => {
+                          updateStyle({ fillColor: (e.target as HTMLInputElement).value });
+                        }}
+                        onChange={(e) => {
+                          updateStyle({ fillColor: e.target.value });
+                        }}
+                      />
+                    </label>
+
                     <button
-                      key={ls}
+                      type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
-                        applyTextStyle({ lineHeight: ls });
-                        setIsLineSpacingMenuOpen(false);
+                        updateStyle({ fillColor: 'transparent' });
+                        setIsFillPickerOpen(false);
                       }}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-md transition cursor-pointer ${
-                        currentLineHeight === ls
-                          ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
-                          : 'hover:bg-[#FFF9F0] text-[#302633]'
+                      className={`text-[11px] px-2 py-1 rounded transition font-medium cursor-pointer ${
+                        currentFill === 'transparent'
+                          ? 'bg-[#FFF0ED] text-[#F26B5B] font-bold border border-[#FCD9D3]'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                       }`}
+                      title="Clear Fill / Make Hollow"
                     >
-                      {ls}x
+                      No Fill
                     </button>
-                  ))}
+                  </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* Highlight Selection in Text (Standalone text only) */}
-          {isText && (
+          {/* 4. STROKE COLOR PICKER */}
+          <div className="relative shrink-0" ref={strokeRef}>
             <button
+              type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => highlightSelectedText()}
-              className="p-1.5 rounded-full text-amber-600 hover:bg-amber-50 transition shrink-0"
-              title="Highlight selected text characters"
+              onClick={toggleStrokePicker}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-full hover:bg-[#FFF9F0] transition text-xs font-medium text-[#302633] cursor-pointer"
+              title="Stroke Color"
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <span
+                className="w-4 h-4 rounded-full border border-slate-300 shadow-2xs block relative overflow-hidden shrink-0"
+                style={{
+                  backgroundColor: currentStroke === 'transparent' ? '#FFFFFF' : currentStroke,
+                }}
+              >
+                {currentStroke === 'transparent' && (
+                  <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span className="w-[140%] h-0.5 bg-rose-500 rotate-45 block" />
+                  </span>
+                )}
+              </span>
+              <span className="text-[11px] hidden sm:inline font-semibold">Stroke</span>
+              <ChevronDown className="w-2.5 h-2.5 text-slate-400" />
             </button>
-          )}
+
+            {isStrokePickerOpen && (
+              <div
+                onMouseDown={(e) => e.stopPropagation()}
+                className={`absolute ${popoverPositionClass} left-1/2 -translate-x-1/2 bg-white border border-[#EFE5D8] rounded-xl shadow-xl p-3 z-50 animate-in fade-in zoom-in-95 duration-100 w-52`}
+              >
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  <span>Stroke Color</span>
+                  {currentStroke === 'transparent' ? (
+                    <span className="text-amber-600 font-medium lowercase">none</span>
+                  ) : (
+                    <span className="font-mono text-[9px] lowercase">{currentStroke}</span>
+                  )}
+                </div>
+
+                {/* Preset Swatches */}
+                <div className="grid grid-cols-4 gap-2 mb-2.5">
+                  {strokePresets.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        updateStyle({ strokeColor: c });
+                        setIsStrokePickerOpen(false);
+                      }}
+                      className="w-6 h-6 rounded-full border border-slate-200 flex items-center justify-center transition hover:scale-110 shadow-2xs cursor-pointer"
+                      style={{ backgroundColor: c }}
+                      title={c}
+                    >
+                      {currentStroke.toLowerCase() === c.toLowerCase() && (
+                        <Check className="w-3 h-3 text-white" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom Picker and Clear Button */}
+                <div className="flex items-center justify-between pt-2 border-t border-[#F0EAE1]">
+                  <label className="color-control text-xs" onMouseDown={(e) => e.stopPropagation()}>
+                    <span>Custom</span>
+                    <input
+                      type="color"
+                      aria-label="Custom stroke color"
+                      value={currentStroke === 'transparent' ? '#F26B5B' : currentStroke}
+                      onInput={(e) => {
+                        updateStyle({ strokeColor: (e.target as HTMLInputElement).value });
+                      }}
+                      onChange={(e) => {
+                        updateStyle({ strokeColor: e.target.value });
+                      }}
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      updateStyle({ strokeColor: 'transparent' });
+                      setIsStrokePickerOpen(false);
+                    }}
+                    className={`text-[11px] px-2 py-1 rounded transition font-medium cursor-pointer ${
+                      currentStroke === 'transparent'
+                        ? 'bg-[#FFF0ED] text-[#F26B5B] font-bold border border-[#FCD9D3]'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                    title="No Outline / Transparent"
+                  >
+                    No Stroke
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 5. STROKE WIDTH */}
+          <div className="relative shrink-0" ref={widthRef}>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={toggleWidthMenu}
+              className="flex items-center gap-1 px-2 py-1 rounded-full hover:bg-[#FFF9F0] transition text-xs font-semibold text-[#302633] cursor-pointer"
+              title="Stroke width"
+            >
+              <span>{currentWidth}px</span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+
+            {isWidthMenuOpen && (
+              <div
+                onMouseDown={(e) => e.stopPropagation()}
+                className={`absolute ${popoverPositionClass} left-1/2 -translate-x-1/2 bg-white border border-[#EFE5D8] rounded-xl shadow-xl p-1 z-50 w-28 text-xs animate-in fade-in zoom-in-95 duration-100`}
+              >
+                {strokeWidths.map((w) => (
+                  <button
+                    key={w}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      updateStyle({ strokeWidth: w });
+                      setIsWidthMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition cursor-pointer ${
+                      currentWidth === w
+                        ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
+                        : 'text-[#302633] hover:bg-[#FFF9F0]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="rounded-full bg-[#302633]"
+                        style={{ width: `${Math.min(16, Math.max(2, w * 1.5))}px`, height: `${Math.max(2, w)}px` }}
+                      />
+                      <span>{w}px</span>
+                    </div>
+                    {currentWidth === w && <Check className="w-3 h-3 text-[#F26B5B]" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 6. OPACITY */}
+          <div className="relative shrink-0" ref={opacityRef}>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={toggleOpacityMenu}
+              className="flex items-center gap-1 px-2 py-1 rounded-full hover:bg-[#FFF9F0] transition text-xs font-semibold text-[#302633] cursor-pointer"
+              title="Opacity"
+            >
+              <span>{Math.round(currentOpacity * 100)}%</span>
+              <ChevronDown className="w-3 h-3 text-[#302633]/40" />
+            </button>
+
+            {isOpacityMenuOpen && (
+              <div
+                onMouseDown={(e) => e.stopPropagation()}
+                className={`absolute ${popoverPositionClass} left-1/2 -translate-x-1/2 bg-white border border-[#EFE5D8] rounded-xl shadow-xl p-1 z-50 w-24 text-xs animate-in fade-in zoom-in-95 duration-100`}
+              >
+                {opacities.map((op) => (
+                  <button
+                    key={op}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      updateStyle({ opacity: op });
+                      setIsOpacityMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition cursor-pointer ${
+                      currentOpacity === op
+                        ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
+                        : 'text-[#302633] hover:bg-[#FFF9F0]'
+                    }`}
+                  >
+                    <span>{Math.round(op * 100)}%</span>
+                    {currentOpacity === op && <Check className="w-3 h-3 text-[#F26B5B]" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </>
       )}
 
@@ -774,7 +672,7 @@ export const ContextualStyleBar: React.FC = () => {
           <div className="relative shrink-0" ref={moreRef}>
             <button
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+              onClick={toggleMoreMenu}
               className="p-1.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer"
               title="More actions"
             >
@@ -782,7 +680,7 @@ export const ContextualStyleBar: React.FC = () => {
             </button>
 
             {isMoreMenuOpen && (
-              <div className="absolute top-8 right-0 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-50 w-40 text-xs animate-in fade-in zoom-in-95 duration-100">
+              <div className={`absolute ${popoverPositionClass} right-0 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-50 w-40 text-xs animate-in fade-in zoom-in-95 duration-100`}>
                 <button
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {

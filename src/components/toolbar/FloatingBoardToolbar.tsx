@@ -21,6 +21,7 @@ import { StickyTemplateGalleryPopover } from './StickyTemplateGalleryPopover';
 import { BrushToolPopover } from './BrushToolPopover';
 import { HighlighterToolPopover } from './HighlighterToolPopover';
 import { EraserToolPopover } from './EraserToolPopover';
+import { TextToolPopover } from './TextToolPopover';
 
 export const FloatingBoardToolbar: React.FC = () => {
   const {
@@ -35,6 +36,8 @@ export const FloatingBoardToolbar: React.FC = () => {
     isStickyGalleryOpen,
     setIsStickyGalleryOpen,
     selectedStickyTemplate,
+    isTextPopoverOpen,
+    setIsTextPopoverOpen,
   } = useWorkspace();
 
   const [isBrushPopoverOpen, setIsBrushPopoverOpen] = useState(false);
@@ -46,6 +49,7 @@ export const FloatingBoardToolbar: React.FC = () => {
   const brushRef = useRef<HTMLDivElement>(null);
   const highlighterRef = useRef<HTMLDivElement>(null);
   const eraserRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
 
   // Close shapes popover on click outside
   useEffect(() => {
@@ -246,19 +250,44 @@ export const FloatingBoardToolbar: React.FC = () => {
           )}
         </div>
 
-        {/* 5. Text (T) */}
-        <button
-          onClick={() => handleToolClick('text')}
-          className={`p-1.5 rounded-full transition cursor-pointer ${
-            activeTool === 'text'
-              ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold ring-1 ring-[#FCD9D3] shadow-2xs'
-              : 'hover:bg-[#FFF9F0] text-[#302633]/70 hover:text-[#302633]'
-          }`}
-          title="Text (T)"
-          aria-label="Text Tool"
-        >
-          <Type className="w-4 h-4" />
-        </button>
+        {/* 5. Text (T) with Popover */}
+        <div className="relative" ref={textRef}>
+          <div className="flex items-center">
+            <button
+              onClick={() => {
+                handleToolClick('text');
+                setIsTextPopoverOpen(!isTextPopoverOpen);
+              }}
+              className={`p-1.5 rounded-l-full transition cursor-pointer ${
+                activeTool === 'text'
+                  ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold ring-1 ring-[#FCD9D3] shadow-2xs'
+                  : 'hover:bg-[#FFF9F0] text-[#302633]/70 hover:text-[#302633]'
+              }`}
+              title="Text (T) - Click to toggle text formatting options"
+              aria-label="Text Tool"
+            >
+              <Type className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => {
+                setActiveTool('text');
+                setIsTextPopoverOpen(!isTextPopoverOpen);
+              }}
+              className={`p-1 rounded-r-full border-l border-[#EFE5D8] hover:bg-[#FFF9F0] transition text-[#302633]/40 hover:text-[#302633] cursor-pointer ${
+                activeTool === 'text' ? 'bg-[#FFF0ED]' : ''
+              }`}
+              title="Text Formatting Options"
+              aria-label="Text Formatting Options"
+            >
+              <ChevronDown className="w-3 h-3" />
+            </button>
+          </div>
+
+          <TextToolPopover
+            isOpen={isTextPopoverOpen}
+            onClose={() => setIsTextPopoverOpen(false)}
+          />
+        </div>
 
         {/* Divider */}
         <div className="h-4 w-px bg-[#EFE5D8] mx-0.5" />
