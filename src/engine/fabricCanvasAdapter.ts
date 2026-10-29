@@ -1,5 +1,6 @@
 import {
   Canvas,
+  ActiveSelection,
   PencilBrush,
   Point,
   Textbox,
@@ -11,6 +12,8 @@ import {
   Group,
   FabricObject,
   Path,
+  Ellipse,
+  FabricImage,
   util,
 } from 'fabric';
 import { CanvasEngineContract } from '../types/contracts';
@@ -32,6 +35,16 @@ import {
   clampZoom,
 } from './canvasCoordinates';
 import { STICKY_TEMPLATES, createStickyNote } from './stickyNoteTemplates';
+import {
+  pathForShape,
+  wavyPathFromPoints,
+  curvePathFromPoints,
+} from './shapeDefinitions';
+import {
+  buildChartGroup,
+  CARD_WIDTH,
+  CARD_HEIGHT,
+} from './chartRenderer';
 
 const EXTRA_PROPS = [
   'id',
@@ -48,6 +61,28 @@ const EXTRA_PROPS = [
   'brushWidth',
   'brushOpacity',
   'pressureEnabled',
+  'imageName',
+  'imageMimeType',
+  'isPixelForgeLocked',
+  'pixelForgeGroupId',
+  'createdById',
+  'lockedById',
+  'isPixelForgeGroup',
+  'isPixelForgeLassoPreview',
+  'pixelForgeSyncId',
+  'isPixelForgeTable',
+  'tableRows',
+  'tableCols',
+  'cellW',
+  'cellH',
+  'tableCellRow',
+  'tableCellCol',
+  'isTableCellRect',
+  'isTableCellText',
+  'isPixelForgeGraph',
+  'graphType',
+  'graphData',
+  'isPixelForgeCurve',
 ];
 
 // Configure polished control handles across all Fabric canvas objects
@@ -201,6 +236,15 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
     exitHandler: () => void;
   } | null = null;
 
+  // Active in-place text editor for table cells
+  private activeTableEditor: {
+    tempBox: Textbox;
+    parentGroup: any;
+    cellRect: any;
+    targetChild: Textbox;
+    exitHandler: () => void;
+  } | null = null;
+
   // Sticky template state
   private selectedStickyTemplate: string = 'sunny';
 
@@ -232,6 +276,13 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
   private lastPanClientY: number = 0;
   private isSpacePressed: boolean = false;
 
+  // Lasso selection state
+  private lassoState: {
+    active: boolean;
+    points: Array<{ x: number; y: number }>;
+    preview: Path | null;
+  } = { active: false, points: [], preview: null };
+
   // Key event handlers for Spacebar pan & window resize
   private windowKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
   private windowKeyupHandler: ((e: KeyboardEvent) => void) | null = null;
@@ -248,6 +299,7 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
   private brushSettingsListeners: Set<(settings: BrushSettings) => void> = new Set();
   private textSettingsListeners: Set<(settings: TextFormattingSettings) => void> = new Set();
   private selectionBoundsListeners: Set<(bounds: { left: number; top: number; width: number; height: number } | null) => void> = new Set();
+  private toolListeners: Set<(tool: ToolType) => void> = new Set();
 
   // Text formatting state
   private textSettings: TextFormattingSettings = {
@@ -312,6 +364,14 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
       }
       this.activeStickyEditor = null;
     }
+    if (this.activeTableEditor) {
+      try {
+        this.activeTableEditor.exitHandler();
+      } catch {
+        // ignore
+      }
+      this.activeTableEditor = null;
+    }
     if (this.historyDebounceTimer) {
       window.clearTimeout(this.historyDebounceTimer);
       this.historyDebounceTimer = null;
@@ -342,6 +402,12 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
   // =========================================================================
 
   public setTool(tool: ToolType): void {
+    if (this.activeStickyEditor && tool !== 'text') {
+      try { this.activeStickyEditor.exitHandler(); } catch {}
+    }
+    if (this.activeTableEditor && tool !== 'text') {
+      try { this.activeTableEditor.exitHandler(); } catch {}
+    }
     this.currentTool = tool;
     if (this.canvas) {
       this.applyToolToCanvas(tool);
@@ -415,7 +481,12 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
               updates.stroke = (style.strokeColor === 'transparent' || style.strokeColor === 'none') ? 'transparent' : style.strokeColor;
             }
             if (style.fillColor !== undefined) {
-              if (child.type === 'line') {
+              if (
+                child.type === 'line' ||
+                child.isPixelForgeStroke ||
+                child.isPixelForgeCurve ||
+                ['wavy', 'smooth', 'hinged', 'line'].includes(child.pixelForgeObjectType)
+              ) {
                 updates.fill = 'transparent';
               } else {
                 updates.fill = (style.fillColor === 'transparent' || !style.fillColor || style.fillColor === 'none') ? 'transparent' : style.fillColor;
@@ -525,7 +596,12 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
           updates.stroke = (style.strokeColor === 'transparent' || style.strokeColor === 'none') ? 'transparent' : style.strokeColor;
         }
         if (style.fillColor !== undefined) {
-          if (active.type === 'line') {
+          if (
+            active.type === 'line' ||
+            active.isPixelForgeStroke ||
+            active.isPixelForgeCurve ||
+            ['wavy', 'smooth', 'hinged', 'line'].includes(active.pixelForgeObjectType)
+          ) {
             updates.fill = 'transparent';
           } else {
             updates.fill = (style.fillColor === 'transparent' || !style.fillColor || style.fillColor === 'none') ? 'transparent' : style.fillColor;
@@ -624,8 +700,9 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
   public async deleteSelected(): Promise<void> {
     if (!this.canvas) return;
     const activeObjects = this.canvas.getActiveObjects();
-    if (activeObjects.length > 0) {
-      activeObjects.forEach((obj) => {
+    const deletable = activeObjects.filter((obj) => !(obj as any).isPixelForgeLocked);
+    if (deletable.length > 0) {
+      deletable.forEach((obj) => {
         if ((obj as any).isEditing) {
           (obj as any).exitEditing?.();
         }
@@ -643,12 +720,13 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
   public async duplicateSelected(): Promise<void> {
     if (!this.canvas) return;
     const active = this.canvas.getActiveObject() as any;
-    if (!active) return;
+    if (!active || active.isPixelForgeLocked) return;
 
     try {
       if (active.type === 'activeselection') {
-        const clones: any[] = [];
         const objects = active.getObjects ? active.getObjects() : [];
+        if (objects.some((o: any) => o.isPixelForgeLocked)) return;
+        const clones: any[] = [];
         for (const obj of objects) {
           const cl = await obj.clone(EXTRA_PROPS);
           cl.id = `obj-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
@@ -687,7 +765,7 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
 
   public async bringForwardSelected(): Promise<void> {
     if (!this.canvas) return;
-    const objects = this.canvas.getActiveObjects();
+    const objects = this.canvas.getActiveObjects().filter((obj) => !(obj as any).isPixelForgeLocked);
     if (objects.length > 0) {
       const all = (this.canvas as any)._objects || [];
       const sorted = [...objects].sort((a, b) => all.indexOf(a) - all.indexOf(b));
@@ -706,7 +784,7 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
 
   public async sendBackwardSelected(): Promise<void> {
     if (!this.canvas) return;
-    const objects = this.canvas.getActiveObjects();
+    const objects = this.canvas.getActiveObjects().filter((obj) => !(obj as any).isPixelForgeLocked);
     if (objects.length > 0) {
       const all = (this.canvas as any)._objects || [];
       const sorted = [...objects].sort((a, b) => all.indexOf(a) - all.indexOf(b));
@@ -725,7 +803,7 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
 
   public async bringToFrontSelected(): Promise<void> {
     if (!this.canvas) return;
-    const objects = this.canvas.getActiveObjects();
+    const objects = this.canvas.getActiveObjects().filter((obj) => !(obj as any).isPixelForgeLocked);
     if (objects.length > 0) {
       const all = (this.canvas as any)._objects || [];
       const sorted = [...objects].sort((a, b) => all.indexOf(a) - all.indexOf(b));
@@ -738,7 +816,7 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
 
   public async sendToBackSelected(): Promise<void> {
     if (!this.canvas) return;
-    const objects = this.canvas.getActiveObjects();
+    const objects = this.canvas.getActiveObjects().filter((obj) => !(obj as any).isPixelForgeLocked);
     if (objects.length > 0) {
       const all = (this.canvas as any)._objects || [];
       const sorted = [...objects].sort((a, b) => all.indexOf(a) - all.indexOf(b));
@@ -749,10 +827,42 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
     }
   }
 
+  public lockSelected(locked: boolean = true): void {
+    if (!this.canvas) return;
+    const objects = this.canvas.getActiveObjects();
+    if (objects.length === 0) return;
+    objects.forEach((obj: any) => {
+      obj.isPixelForgeLocked = locked;
+      obj.set({
+        lockMovementX: locked,
+        lockMovementY: locked,
+        lockScalingX: locked,
+        lockScalingY: locked,
+        lockRotation: locked,
+        lockSkewingX: locked,
+        lockSkewingY: locked,
+        hasControls: !locked,
+      });
+      obj.selectable = true;
+      obj.evented = true;
+      obj.setCoords?.();
+    });
+    this.canvas.requestRenderAll();
+    this.notifyObjects();
+    this.notifySelection(this.canvas.getActiveObject() || null);
+    this.saveHistorySnapshot();
+  }
+
+  public isSelectionLocked(): boolean {
+    if (!this.canvas) return false;
+    const objects = this.canvas.getActiveObjects();
+    return objects.length > 0 && objects.every((obj: any) => Boolean((obj as any).isPixelForgeLocked));
+  }
+
   public nudgeSelected(dx: number, dy: number): void {
     if (!this.canvas) return;
     const active = this.canvas.getActiveObject();
-    if (!active || (active as any).isEditing) return;
+    if (!active || (active as any).isEditing || (active as any).isPixelForgeLocked) return;
     active.set({
       left: (active.left || 0) + dx,
       top: (active.top || 0) + dy,
@@ -842,6 +952,23 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
           if (typeof bodyText.initDimensions === 'function') bodyText.initDimensions();
         }
       }
+    }
+
+    if (updates.isPixelForgeLocked !== undefined) {
+      const locked = updates.isPixelForgeLocked;
+      found.isPixelForgeLocked = locked;
+      found.set({
+        lockMovementX: locked,
+        lockMovementY: locked,
+        lockScalingX: locked,
+        lockScalingY: locked,
+        lockRotation: locked,
+        lockSkewingX: locked,
+        lockSkewingY: locked,
+        hasControls: !locked,
+      });
+      found.selectable = true;
+      found.evented = true;
     }
 
     found.dirty = true;
@@ -1387,6 +1514,11 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
     };
   }
 
+  public getCanvasSnapshot(): Record<string, unknown> | null {
+    if (!this.canvas) return null;
+    return this.canvas.toObject(EXTRA_PROPS);
+  }
+
   // =========================================================================
   // Subscriptions & Selection Bounds Tracking
   // =========================================================================
@@ -1569,6 +1701,12 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
       type = 'select';
     } else if (custom.isPixelForgeSticky || custom.stickyNoteData) {
       type = 'sticky';
+    } else if (custom.isPixelForgeTable || custom.tableRows) {
+      type = 'table';
+    } else if (custom.isPixelForgeGraph || custom.graphType) {
+      type = 'graph';
+    } else if (obj.type === 'image' || custom.imageName) {
+      type = 'image';
     } else if (custom.isPixelForgeText || obj.type === 'textbox') {
       type = 'text';
     } else if (custom.isPixelForgeStroke || obj.type === 'path') {
@@ -1644,7 +1782,13 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
       strokeColor = line?.stroke || '#F26B5B';
       strokeWidth = typeof line?.strokeWidth === 'number' ? line.strokeWidth : 2;
       fillColor = 'transparent';
-    } else if (type === 'line') {
+    } else if (
+      type === 'line' ||
+      type === 'wavy' ||
+      type === 'smooth' ||
+      type === 'hinged' ||
+      custom.isPixelForgeCurve
+    ) {
       strokeColor = typeof obj.stroke === 'string' ? obj.stroke : '#F26B5B';
       strokeWidth = typeof obj.strokeWidth === 'number' ? obj.strokeWidth : 2;
       fillColor = 'transparent';
@@ -1652,6 +1796,7 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
 
     return {
       id,
+      name: custom.name || (obj as any).name,
       type,
       x: Math.round(obj.left || 0),
       y: Math.round(obj.top || 0),
@@ -1674,6 +1819,17 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
       stickyColor: custom.stickyNoteData?.headerColor || custom.stickyColor || '#fef08a',
       visible: obj.visible !== false,
       borderRadius: (obj as any).rx,
+      isPixelForgeLocked: Boolean(custom.isPixelForgeLocked),
+      lockedById: custom.lockedById,
+      createdById: custom.createdById,
+      pixelForgeGroupId: custom.pixelForgeGroupId,
+      pixelForgeSyncId: custom.pixelForgeSyncId,
+      imageName: custom.imageName,
+      imageMimeType: custom.imageMimeType,
+      tableRows: custom.tableRows,
+      tableCols: custom.tableCols,
+      graphType: custom.graphType,
+      graphData: custom.graphData,
     };
   }
 
@@ -1974,6 +2130,11 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
         this.activeStickyEditor.exitHandler();
       }
 
+      // If active table editor is open and clicked elsewhere, conclude editing
+      if (this.activeTableEditor && target !== this.activeTableEditor.tempBox) {
+        this.activeTableEditor.exitHandler();
+      }
+
       // Panning trigger
       if (this.currentTool === 'pan' || this.isSpacePressed) {
         const { clientX, clientY } = getPointerClientXY(e);
@@ -2043,18 +2204,26 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
       }
 
       // Shape placement
-      const shapeTools: ShapeSubtype[] = [
-        'rectangle',
-        'rounded-rectangle',
-        'circle',
-        'ellipse',
-        'diamond',
-        'triangle',
-        'line',
-        'arrow',
+      const nonShapeTools = [
+        'select',
+        'pan',
+        'brush',
+        'highlighter',
+        'eraser',
+        'sticky',
+        'text',
+        'pen',
+        'marker',
+        'pencil',
+        'calligraphy',
+        'table',
+        'graph',
+        'curve',
+        'image',
+        'group',
       ];
 
-      if (shapeTools.includes(this.currentTool as ShapeSubtype)) {
+      if (!nonShapeTools.includes(this.currentTool)) {
         this.createShapeAtPoint(this.currentTool as ShapeSubtype, point);
         this.setTool('select');
         this.saveHistorySnapshot();
@@ -2085,7 +2254,7 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
     // 5. Double Click on Text or Sticky Note
     canvas.on('mouse:dblclick', (opt) => {
       const target = opt.target;
-      if (!target) return;
+      if (!target || (target as any).isPixelForgeLocked) return;
 
       // Case A: Standalone Textbox
       if (
@@ -2211,6 +2380,162 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
         this.notifyObjects();
         this.notifySelection(tempBox);
         this.notifySelectionBounds();
+        return;
+      }
+
+      // Case C: Table Group
+      if ((target as any).isPixelForgeTable || (target as any).pixelForgeObjectType === 'table') {
+        if (this.activeTableEditor) {
+          this.activeTableEditor.exitHandler();
+        }
+        if (this.activeStickyEditor) {
+          this.activeStickyEditor.exitHandler();
+        }
+
+        const tableGroup = target as any;
+        const allObjects = (tableGroup.getObjects?.() || []) as any[];
+        const textboxes = allObjects.filter((o) => o.isTableCellText);
+        const rects = allObjects.filter((o) => o.isTableCellRect);
+
+        let targetRow = -1;
+        let targetCol = -1;
+
+        // 1. Check opt.subTargets
+        if (opt.subTargets && opt.subTargets.length > 0) {
+          const clickedSub = (opt.subTargets as any[]).find(
+            (s: any) => s.tableCellRow !== undefined && s.tableCellCol !== undefined
+          );
+          if (clickedSub) {
+            targetRow = (clickedSub as any).tableCellRow;
+            targetCol = (clickedSub as any).tableCellCol;
+          }
+        }
+
+        // 2. Fallback to pointer local calculation
+        if (targetRow === -1 || targetCol === -1) {
+          const pointer = getWorldPointer(canvas, opt.e);
+          const matrix = tableGroup.calcTransformMatrix();
+          const invMatrix = util.invertTransform(matrix);
+          const localPt = util.transformPoint(new Point(pointer.x, pointer.y), invMatrix);
+
+          const totalCols = tableGroup.tableCols || 3;
+          const totalRows = tableGroup.tableRows || 4;
+          const cellW = tableGroup.cellW || 120;
+          const cellH = tableGroup.cellH || 36;
+          const totalW = totalCols * cellW;
+          const totalH = totalRows * cellH;
+          const minLeft = -totalW / 2;
+          const minTop = -totalH / 2;
+
+          targetCol = Math.max(
+            0,
+            Math.min(totalCols - 1, Math.floor((localPt.x - minLeft) / cellW))
+          );
+          targetRow = Math.max(
+            0,
+            Math.min(totalRows - 1, Math.floor((localPt.y - minTop) / cellH))
+          );
+        }
+
+        let targetTextChild = textboxes.find(
+          (t: any) => t.tableCellRow === targetRow && t.tableCellCol === targetCol
+        );
+        const targetRectChild = rects.find(
+          (r: any) => r.tableCellRow === targetRow && r.tableCellCol === targetCol
+        );
+
+        if (!targetTextChild) {
+          targetTextChild = textboxes[0];
+          if (!targetTextChild) return;
+          targetRow = targetTextChild.tableCellRow;
+          targetCol = targetTextChild.tableCellCol;
+        }
+
+        const matrix = tableGroup.calcTransformMatrix();
+        const worldPt = util.transformPoint(
+          new Point(targetTextChild.left, targetTextChild.top),
+          matrix
+        );
+        const scaleX = tableGroup.scaleX || 1;
+        const scaleY = tableGroup.scaleY || 1;
+        const cellW = (tableGroup.cellW || 120) * scaleX;
+        const isHeader = targetRow === 0;
+
+        targetTextChild.set('visible', false);
+        tableGroup.dirty = true;
+
+        const tempBox = new Textbox(targetTextChild.text || '', {
+          left: worldPt.x,
+          top: worldPt.y,
+          width: Math.max(50, cellW - 16 * scaleX),
+          fontFamily: targetTextChild.fontFamily || 'Arial',
+          fontSize: (targetTextChild.fontSize || 13) * scaleY,
+          fontWeight: targetTextChild.fontWeight || (isHeader ? 'bold' : 'normal'),
+          fontStyle: targetTextChild.fontStyle || 'normal',
+          underline: Boolean(targetTextChild.underline),
+          fill: targetTextChild.fill || '#172033',
+          textAlign: targetTextChild.textAlign || 'left',
+          lineHeight: targetTextChild.lineHeight || 1.2,
+          editable: true,
+          splitByGrapheme: true,
+          objectCaching: false,
+          padding: 2,
+          backgroundColor: isHeader ? 'rgba(233, 231, 255, 0.98)' : 'rgba(255, 255, 255, 0.98)',
+        });
+        (tempBox as any).isTempTableEditor = true;
+        (tempBox as any).isPixelForgeText = true;
+        (tempBox as any).id = `temp-table-editor-${Date.now()}`;
+
+        const exitHandler = () => {
+          if (!this.activeTableEditor) return;
+          tempBox.off('editing:exited', exitHandler);
+          const newText = tempBox.text || '';
+          targetTextChild.set({
+            text: newText,
+            fontFamily: tempBox.fontFamily,
+            fontSize: tempBox.fontSize / scaleY,
+            fontWeight: tempBox.fontWeight,
+            fontStyle: tempBox.fontStyle,
+            underline: tempBox.underline,
+            fill: tempBox.fill,
+            textAlign: tempBox.textAlign,
+            lineHeight: tempBox.lineHeight,
+            visible: true,
+          });
+          targetTextChild.dirty = true;
+          if (typeof targetTextChild.initDimensions === 'function') {
+            targetTextChild.initDimensions();
+          }
+
+          tableGroup.dirty = true;
+          canvas.remove(tempBox);
+          this.activeTableEditor = null;
+          canvas.setActiveObject(tableGroup);
+          canvas.requestRenderAll();
+          this.notifyObjects();
+          this.notifySelection(tableGroup);
+          this.notifySelectionBounds();
+          this.saveHistorySnapshot();
+        };
+
+        tempBox.on('editing:exited', exitHandler);
+        this.activeTableEditor = {
+          tempBox,
+          parentGroup: tableGroup,
+          cellRect: targetRectChild,
+          targetChild: targetTextChild,
+          exitHandler,
+        };
+
+        canvas.add(tempBox);
+        canvas.setActiveObject(tempBox);
+        tempBox.enterEditing();
+        tempBox.selectAll();
+        canvas.requestRenderAll();
+        this.notifyObjects();
+        this.notifySelection(tempBox);
+        this.notifySelectionBounds();
+        return;
       }
     });
 
@@ -2364,110 +2689,161 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
         : (this.defaultShapeConfig.fillColor || '#EEF2FF');
     const strokeWidth = this.defaultShapeConfig.strokeWidth !== undefined ? Math.max(0, this.defaultShapeConfig.strokeWidth) : 2;
 
-    switch (shape) {
-      case 'circle':
-        shapeObj = new Circle({
-          left: point.x - 60,
-          top: point.y - 60,
-          radius: 60,
-          fill,
-          stroke,
-          strokeWidth,
-        });
-        break;
-      case 'ellipse':
-        shapeObj = new Circle({
+    const customPath = pathForShape(shape);
+
+    if (shape === 'circle') {
+      shapeObj = new Circle({
+        left: point.x - 60,
+        top: point.y - 60,
+        radius: 60,
+        fill,
+        stroke,
+        strokeWidth,
+      });
+    } else if (shape === 'ellipse') {
+      shapeObj = new Ellipse({
+        left: point.x - 75,
+        top: point.y - 50,
+        rx: 75,
+        ry: 50,
+        fill,
+        stroke,
+        strokeWidth,
+      });
+    } else if (shape === 'square') {
+      shapeObj = new Rect({
+        left: point.x - 60,
+        top: point.y - 60,
+        width: 120,
+        height: 120,
+        rx: 0,
+        ry: 0,
+        fill,
+        stroke,
+        strokeWidth,
+      });
+    } else if (shape === 'rounded-rectangle' || shape === 'roundedRect') {
+      shapeObj = new Rect({
+        left: point.x - 100,
+        top: point.y - 60,
+        width: 200,
+        height: 120,
+        rx: 16,
+        ry: 16,
+        fill,
+        stroke,
+        strokeWidth,
+      });
+    } else if (shape === 'triangle') {
+      shapeObj = new Triangle({
+        left: point.x - 70,
+        top: point.y - 60,
+        width: 140,
+        height: 120,
+        fill,
+        stroke,
+        strokeWidth,
+      });
+    } else if (shape === 'diamond') {
+      shapeObj = new Polygon(
+        [
+          { x: 75, y: 0 },
+          { x: 150, y: 65 },
+          { x: 75, y: 130 },
+          { x: 0, y: 65 },
+        ],
+        {
           left: point.x - 75,
-          top: point.y - 50,
-          radius: 50,
-          scaleX: 1.5,
+          top: point.y - 65,
           fill,
           stroke,
           strokeWidth,
-        });
-        break;
-      case 'rounded-rectangle':
-        shapeObj = new Rect({
-          left: point.x - 100,
-          top: point.y - 60,
-          width: 200,
-          height: 120,
-          rx: 16,
-          ry: 16,
-          fill,
-          stroke,
-          strokeWidth,
-        });
-        break;
-      case 'triangle':
-        shapeObj = new Triangle({
-          left: point.x - 70,
-          top: point.y - 60,
-          width: 140,
-          height: 120,
-          fill,
-          stroke,
-          strokeWidth,
-        });
-        break;
-      case 'diamond':
-        shapeObj = new Polygon(
-          [
-            { x: 75, y: 0 },
-            { x: 150, y: 65 },
-            { x: 75, y: 130 },
-            { x: 0, y: 65 },
-          ],
-          {
-            left: point.x - 75,
-            top: point.y - 65,
-            fill,
-            stroke,
-            strokeWidth,
-          }
-        );
-        break;
-      case 'line':
-        shapeObj = new Line([point.x - 80, point.y, point.x + 80, point.y], {
-          stroke,
-          strokeWidth,
-        });
-        break;
-      case 'arrow': {
-        const line = new Line([0, 0, 134, 0], {
-          stroke,
-          strokeWidth,
-        });
-        const head = new Triangle({
-          left: 140,
-          top: 0,
-          originX: 'center',
-          originY: 'center',
-          width: 16,
-          height: 18,
-          angle: 90,
-          fill: stroke,
-        });
-        shapeObj = new Group([line, head], {
-          left: point.x - 75,
-          top: point.y,
-        });
-        break;
-      }
-      case 'rectangle':
-      default:
-        shapeObj = new Rect({
-          left: point.x - 100,
-          top: point.y - 60,
-          width: 200,
-          height: 120,
-          rx: 8,
-          ry: 8,
-          fill,
-          stroke,
-          strokeWidth,
-        });
-        break;
+        }
+      );
+    } else if (shape === 'line') {
+      shapeObj = new Line([point.x - 80, point.y, point.x + 80, point.y], {
+        stroke,
+        strokeWidth,
+      });
+    } else if (shape === 'wavy') {
+      const wavyPath = wavyPathFromPoints([
+        { x: point.x - 80, y: point.y },
+        { x: point.x + 80, y: point.y },
+      ]);
+      shapeObj = new Path(wavyPath, {
+        fill: '',
+        stroke,
+        strokeWidth,
+        strokeLineCap: 'round',
+        strokeLineJoin: 'round',
+      });
+      (shapeObj as any).isPixelForgeCurve = true;
+    } else if (shape === 'smooth') {
+      const smoothPath = curvePathFromPoints([
+        { x: point.x - 80, y: point.y },
+        { x: point.x - 20, y: point.y - 30 },
+        { x: point.x + 20, y: point.y + 30 },
+        { x: point.x + 80, y: point.y },
+      ]);
+      shapeObj = new Path(smoothPath, {
+        fill: '',
+        stroke,
+        strokeWidth,
+        strokeLineCap: 'round',
+        strokeLineJoin: 'round',
+      });
+      (shapeObj as any).isPixelForgeCurve = true;
+    } else if (shape === 'hinged') {
+      const hingedPath = `M ${point.x - 80} ${point.y} L ${point.x} ${point.y - 30} L ${point.x + 80} ${point.y}`;
+      shapeObj = new Path(hingedPath, {
+        fill: '',
+        stroke,
+        strokeWidth,
+        strokeLineCap: 'round',
+        strokeLineJoin: 'round',
+      });
+      (shapeObj as any).isPixelForgeCurve = true;
+    } else if (shape === 'arrow') {
+      const line = new Line([0, 0, 134, 0], {
+        stroke,
+        strokeWidth,
+      });
+      const head = new Triangle({
+        left: 140,
+        top: 0,
+        originX: 'center',
+        originY: 'center',
+        width: 16,
+        height: 18,
+        angle: 90,
+        fill: stroke,
+      });
+      shapeObj = new Group([line, head], {
+        left: point.x - 75,
+        top: point.y,
+      });
+    } else if (customPath) {
+      shapeObj = new Path(customPath, {
+        left: point.x - 60,
+        top: point.y - 60,
+        scaleX: 1.2,
+        scaleY: 1.2,
+        fill,
+        stroke,
+        strokeWidth,
+      });
+    } else {
+      shapeObj = new Rect({
+        left: point.x - 100,
+        top: point.y - 60,
+        width: 200,
+        height: 120,
+        rx: 8,
+        ry: 8,
+        fill,
+        stroke,
+        strokeWidth,
+      });
     }
 
     if (shapeObj) {
@@ -2483,6 +2859,223 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
       this.notifySelection(shapeObj);
       this.notifySelectionBounds();
       this.saveHistorySnapshot();
+    }
+  }
+
+  public addTable(options?: { rows?: number; cols?: number; x?: number; y?: number }) {
+    if (!this.canvas) return;
+    const rows = Math.max(2, Math.min(12, Number(options?.rows) || 4));
+    const cols = Math.max(2, Math.min(8, Number(options?.cols) || 3));
+    const cellW = 120;
+    const cellH = 36;
+    const children: FabricObject[] = [];
+    const labels: FabricObject[] = [];
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const isHeader = r === 0;
+        const rect = new Rect({
+          left: c * cellW,
+          top: r * cellH,
+          width: cellW,
+          height: cellH,
+          fill: isHeader ? '#E9E7FF' : '#FFFFFF',
+          stroke: '#8B90A0',
+          strokeWidth: 1,
+          selectable: false,
+          evented: true,
+        });
+        (rect as any).tableCellRow = r;
+        (rect as any).tableCellCol = c;
+        (rect as any).isTableCellRect = true;
+        children.push(rect);
+
+        const value = isHeader ? `Column ${c + 1}` : '';
+        const tb = new Textbox(value, {
+          left: c * cellW + 8,
+          top: r * cellH + (isHeader ? 9 : 8),
+          width: cellW - 16,
+          height: cellH - 12,
+          fontSize: 13,
+          fontWeight: isHeader ? 'bold' : 'normal',
+          fill: isHeader ? '#302633' : '#172033',
+          fontFamily: 'Arial',
+          textAlign: 'left',
+          selectable: false,
+          evented: true,
+          editable: false,
+        });
+        (tb as any).tableCellRow = r;
+        (tb as any).tableCellCol = c;
+        (tb as any).isTableCellText = true;
+        labels.push(tb);
+      }
+    }
+
+    const zoom = this.canvas.getZoom() || 1;
+    const vpt = this.canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+    const defaultX = options?.x ?? (this.canvas.getWidth() / 2 - vpt[4]) / zoom - (cols * cellW) / 2;
+    const defaultY = options?.y ?? (this.canvas.getHeight() / 2 - vpt[5]) / zoom - (rows * cellH) / 2;
+
+    const group = new Group([...children, ...labels], {
+      left: defaultX,
+      top: defaultY,
+      subTargetCheck: true,
+      objectCaching: false,
+    });
+
+    const id = `table-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    (group as any).id = id;
+    (group as any).name = `Table (${rows}×${cols})`;
+    (group as any).pixelForgeObjectType = 'table';
+    (group as any).isPixelForgeTable = true;
+    (group as any).tableRows = rows;
+    (group as any).tableCols = cols;
+    (group as any).cellW = cellW;
+    (group as any).cellH = cellH;
+
+    this.canvas.add(group);
+    this.canvas.setActiveObject(group);
+    this.canvas.requestRenderAll();
+    this.saveHistorySnapshot();
+    this.notifyObjects();
+    this.notifySelection(group);
+    this.notifySelectionBounds();
+  }
+
+  public addGraph(options?: { graphType?: string; data?: string; x?: number; y?: number }) {
+    if (!this.canvas) return;
+    const zoom = this.canvas.getZoom() || 1;
+    const vpt = this.canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+    const defaultX = options?.x ?? (this.canvas.getWidth() / 2 - vpt[4]) / zoom - CARD_WIDTH / 2;
+    const defaultY = options?.y ?? (this.canvas.getHeight() / 2 - vpt[5]) / zoom - CARD_HEIGHT / 2;
+
+    const graph = buildChartGroup({
+      graphType: options?.graphType || 'bar',
+      data: options?.data,
+      x: defaultX,
+      y: defaultY,
+    });
+
+    this.canvas.add(graph);
+    this.canvas.setActiveObject(graph);
+    this.canvas.requestRenderAll();
+    this.saveHistorySnapshot();
+    this.notifyObjects();
+    this.notifySelection(graph);
+    this.notifySelectionBounds();
+  }
+
+  public async addImage(file: File): Promise<void> {
+    if (!this.canvas || !file) return;
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error('Please choose a PNG, JPG, WebP, or GIF image.');
+    }
+    const maxBytes = 8 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      throw new Error('Image exceeds 8 MB limit.');
+    }
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('The selected image could not be read.'));
+      reader.readAsDataURL(file);
+    });
+
+    const img = await FabricImage.fromURL(dataUrl);
+    const originalWidth = img.width || 1;
+    const originalHeight = img.height || 1;
+    const scale = Math.min(1, 420 / originalWidth, 320 / originalHeight);
+    const zoom = this.canvas.getZoom() || 1;
+    const vpt = this.canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+    const centerX = (this.canvas.getWidth() / 2 - vpt[4]) / zoom;
+    const centerY = (this.canvas.getHeight() / 2 - vpt[5]) / zoom;
+
+    const id = `img-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    img.set({
+      left: centerX - (originalWidth * scale) / 2,
+      top: centerY - (originalHeight * scale) / 2,
+      scaleX: scale,
+      scaleY: scale,
+      objectCaching: true,
+    });
+    (img as any).id = id;
+    (img as any).name = file.name || 'Image';
+    (img as any).pixelForgeObjectType = 'image';
+    (img as any).imageName = file.name;
+    (img as any).imageMimeType = file.type;
+
+    this.canvas.add(img);
+    this.canvas.setActiveObject(img);
+    this.canvas.requestRenderAll();
+    this.saveHistorySnapshot();
+    this.notifyObjects();
+    this.notifySelection(img);
+    this.notifySelectionBounds();
+  }
+
+  public groupSelected(): void {
+    if (!this.canvas) return;
+    const active = this.canvas.getActiveObject();
+    if (!active || typeof (active as any).toGroup !== 'function') return;
+    if (this.canvas.getActiveObjects().some((obj: any) => obj.isPixelForgeLocked)) return;
+
+    try {
+      const group = (active as any).toGroup();
+      const id = `group-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      group.id = id;
+      group.name = 'Group';
+      group.pixelForgeObjectType = 'group';
+      group.isPixelForgeGroup = true;
+      this.canvas.setActiveObject(group);
+      this.canvas.requestRenderAll();
+      this.saveHistorySnapshot();
+      this.notifyObjects();
+      this.notifySelection(group);
+      this.notifySelectionBounds();
+    } catch (e) {
+      console.error('Grouping failed:', e);
+    }
+  }
+
+  public ungroupSelected(): void {
+    if (!this.canvas) return;
+    const active = this.canvas.getActiveObject();
+    if (!active || typeof (active as any).toActiveSelection !== 'function' || active.type !== 'group') return;
+    if ((active as any).isPixelForgeLocked || this.canvas.getActiveObjects().some((obj: any) => obj.isPixelForgeLocked)) return;
+
+    try {
+      const selection = (active as any).toActiveSelection();
+      this.canvas.setActiveObject(selection);
+      this.canvas.requestRenderAll();
+      this.saveHistorySnapshot();
+      this.notifyObjects();
+      this.notifySelection(selection);
+      this.notifySelectionBounds();
+    } catch (e) {
+      console.error('Ungrouping failed:', e);
+    }
+  }
+
+  public async loadCanvasSnapshot(snapshot: Record<string, unknown> | string): Promise<void> {
+    if (!this.canvas) return;
+    try {
+      const json = typeof snapshot === 'string' ? JSON.parse(snapshot) : snapshot;
+      const parsed = json.format === 'pixelforge-canvas' ? json.objects : json;
+      if (!parsed || !Array.isArray(parsed.objects)) {
+        throw new Error('This file does not contain a Fabric canvas objects array.');
+      }
+      await this.canvas.loadFromJSON(parsed);
+      this.canvas.requestRenderAll();
+      this.saveHistorySnapshot();
+      this.notifyObjects();
+      this.notifySelection(null);
+      this.notifySelectionBounds();
+    } catch (error) {
+      console.error('Failed to load canvas snapshot:', error);
+      throw error;
     }
   }
 

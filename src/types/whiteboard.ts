@@ -6,15 +6,52 @@
 export type ShapeSubtype =
   | 'rectangle'
   | 'rounded-rectangle'
+  | 'roundedRect'
+  | 'square'
   | 'circle'
   | 'ellipse'
   | 'diamond'
   | 'triangle'
   | 'line'
-  | 'arrow';
+  | 'arrow'
+  | 'pentagon'
+  | 'hexagon'
+  | 'heptagon'
+  | 'octagon'
+  | 'nonagon'
+  | 'decagon'
+  | 'parallelogram'
+  | 'trapezoid'
+  | 'star4'
+  | 'star5'
+  | 'star6'
+  | 'star8'
+  | 'burst'
+  | 'sun'
+  | 'gear'
+  | 'arrowUp'
+  | 'arrowDown'
+  | 'arrowLeft'
+  | 'arrowRight'
+  | 'doubleArrow'
+  | 'chevron'
+  | 'heart'
+  | 'lightning'
+  | 'cross'
+  | 'plus'
+  | 'moon'
+  | 'smiley'
+  | 'cloud'
+  | 'speech'
+  | 'thought'
+  | 'callout'
+  | 'wavy'
+  | 'smooth'
+  | 'hinged';
 
 export type ToolType =
   | 'select'
+  | 'lasso'
   | 'pan'
   | 'brush'
   | 'highlighter'
@@ -25,6 +62,11 @@ export type ToolType =
   | 'marker'
   | 'pencil'
   | 'calligraphy'
+  | 'table'
+  | 'graph'
+  | 'curve'
+  | 'image'
+  | 'group'
   | ShapeSubtype;
 
 export interface BrushSettings {
@@ -92,6 +134,7 @@ export type EngineReadinessState = 'uninitialized' | 'initializing' | 'ready' | 
  */
 export interface CanvasObject {
   id: string;
+  name?: string;
   type: ToolType;
   x: number;
   y: number;
@@ -115,6 +158,17 @@ export interface CanvasObject {
   points?: { x: number; y: number }[];
   borderRadius?: number | [number, number, number, number];
   visible?: boolean;
+  isPixelForgeLocked?: boolean;
+  lockedById?: string;
+  createdById?: string;
+  pixelForgeGroupId?: string;
+  pixelForgeSyncId?: string;
+  imageName?: string;
+  imageMimeType?: string;
+  tableRows?: number;
+  tableCols?: number;
+  graphType?: string;
+  graphData?: string;
 }
 
 export type ConnectionStatus =
@@ -123,6 +177,8 @@ export type ConnectionStatus =
   | 'offline'
   | 'cached'
   | 'saved';
+
+export type BoardMemberRole = 'owner' | 'editor' | 'viewer';
 
 export interface Collaborator {
   id: string;
@@ -134,6 +190,7 @@ export interface Collaborator {
   };
   lastActive?: number;
   isSelf?: boolean;
+  role?: BoardMemberRole;
 }
 
 export interface PresenceUpdatePayload {
@@ -152,4 +209,16 @@ export interface BoardOperationPayload {
   targetId?: string;
   data?: unknown;
   timestamp: number;
+}
+
+export interface BoardRevision {
+  id?: string;
+  boardId?: string;
+  revisionNumber?: number;
+  kind?: 'manual' | 'autosave';
+  label?: string;
+  revisionNote?: string;
+  snapshot: unknown;
+  createdBy?: string;
+  createdAt?: string | number;
 }

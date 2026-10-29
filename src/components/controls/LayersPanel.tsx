@@ -16,6 +16,17 @@ import {
   Link2,
   Link2Off,
   X,
+  Lock,
+  Unlock,
+  Table as TableIcon,
+  Image as ImageIcon,
+  BarChart2,
+  Hexagon,
+  Star,
+  Heart,
+  Cloud,
+  MessageSquare,
+  Zap,
 } from 'lucide-react';
 
 export const LayersPanel: React.FC = () => {
@@ -29,6 +40,7 @@ export const LayersPanel: React.FC = () => {
     styleConfig,
     updateObjectProperties,
     toggleObjectVisibility,
+    toggleObjectLock,
   } = useWorkspace();
 
   const [activeTab, setActiveTab] = useState<'layers' | 'properties'>('layers');
@@ -48,28 +60,59 @@ export const LayersPanel: React.FC = () => {
     ? mockObjects.find((o) => o.id === selectedMockObjectId) || null
     : null);
 
+  const isArrowOrLine = (type: string) =>
+    [
+      'arrow',
+      'line',
+      'wavy',
+      'smooth',
+      'hinged',
+      'line_straight',
+      'line_arrow',
+      'line_bidirectional',
+      'line_dashed',
+      'curve',
+      'curve_smooth',
+      'curve_wavy',
+      'curve_hinged',
+      'arrowUp',
+      'arrowDown',
+      'arrowLeft',
+      'arrowRight',
+      'doubleArrow',
+      'chevron',
+    ].includes(type);
+
+  const isDrawing = (type: string) =>
+    ['brush', 'highlighter', 'pen', 'marker', 'pencil', 'calligraphy', 'stroke', 'path'].includes(type);
+
   // Categories partition
   const stickyNotes = mockObjects.filter((o) => o.type === 'sticky');
+  const tables = mockObjects.filter((o) => o.type === 'table');
+  const images = mockObjects.filter((o) => o.type === 'image');
+  const graphs = mockObjects.filter((o) => o.type === 'graph');
+  const textItems = mockObjects.filter((o) => o.type === 'text');
+  const drawings = mockObjects.filter((o) => isDrawing(o.type));
+  const arrows = mockObjects.filter((o) => isArrowOrLine(o.type));
+
   const shapes = mockObjects.filter(
     (o) =>
-      o.type === 'rectangle' ||
-      o.type === 'rounded-rectangle' ||
-      o.type === 'circle' ||
-      o.type === 'ellipse' ||
-      o.type === 'diamond' ||
-      o.type === 'triangle'
-  );
-  const textItems = mockObjects.filter((o) => o.type === 'text');
-  const drawings = mockObjects.filter(
-    (o) => o.type === 'brush' || o.type === 'highlighter'
-  );
-  const arrows = mockObjects.filter(
-    (o) => o.type === 'arrow' || o.type === 'line'
+      o.type !== 'sticky' &&
+      o.type !== 'table' &&
+      o.type !== 'image' &&
+      o.type !== 'graph' &&
+      o.type !== 'text' &&
+      !isDrawing(o.type) &&
+      !isArrowOrLine(o.type) &&
+      o.type !== 'select' &&
+      o.type !== 'pan' &&
+      o.type !== 'eraser'
   );
 
   const getShapeIcon = (type: string) => {
     switch (type) {
       case 'rounded-rectangle':
+      case 'roundedRect':
         return <Square className="w-3.5 h-3.5 text-[#6D3B67] rounded-xs" />;
       case 'circle':
         return <Circle className="w-3.5 h-3.5 text-[#6D3B67]" />;
@@ -79,6 +122,43 @@ export const LayersPanel: React.FC = () => {
         return <Diamond className="w-3.5 h-3.5 text-[#6D3B67]" />;
       case 'triangle':
         return <Triangle className="w-3.5 h-3.5 text-[#6D3B67]" />;
+      case 'pentagon':
+      case 'hexagon':
+      case 'heptagon':
+      case 'octagon':
+      case 'nonagon':
+      case 'decagon':
+        return <Hexagon className="w-3.5 h-3.5 text-[#6D3B67]" />;
+      case 'star4':
+      case 'star5':
+      case 'star6':
+      case 'star8':
+      case 'burst':
+      case 'sun':
+        return <Star className="w-3.5 h-3.5 text-[#6D3B67]" />;
+      case 'heart':
+        return <Heart className="w-3.5 h-3.5 text-[#E11D48]" />;
+      case 'cloud':
+        return <Cloud className="w-3.5 h-3.5 text-[#0284C7]" />;
+      case 'speech':
+      case 'thought':
+      case 'callout':
+        return <MessageSquare className="w-3.5 h-3.5 text-[#6D3B67]" />;
+      case 'lightning':
+        return <Zap className="w-3.5 h-3.5 text-[#EAB308]" />;
+      case 'table':
+        return <TableIcon className="w-3.5 h-3.5 text-[#6366F1]" />;
+      case 'image':
+        return <ImageIcon className="w-3.5 h-3.5 text-[#059669]" />;
+      case 'graph':
+        return <BarChart2 className="w-3.5 h-3.5 text-[#F59E0B]" />;
+      case 'parallelogram':
+      case 'trapezoid':
+        return (
+          <svg className="w-3.5 h-3.5 text-[#6D3B67]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M6 4h14l-4 16H2z" strokeLinejoin="round" />
+          </svg>
+        );
       case 'rectangle':
       default:
         return <Square className="w-3.5 h-3.5 text-[#6D3B67]" />;
@@ -195,20 +275,42 @@ export const LayersPanel: React.FC = () => {
                             {obj.text?.split('\n')[0] || `Note ${i + 1}`}
                           </span>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleObjectVisibility(obj.id);
-                          }}
-                          className="p-0.5 text-slate-400 hover:text-slate-600 transition"
-                          title={isHidden ? 'Show layer' : 'Hide layer'}
-                        >
-                          {isHidden ? (
-                            <EyeOff className="w-3 h-3 text-slate-300" />
-                          ) : (
-                            <Eye className="w-3 h-3" />
-                          )}
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleObjectLock(obj.id);
+                            }}
+                            className={`p-0.5 transition ${
+                              obj.isPixelForgeLocked
+                                ? 'text-[#F26B5B]'
+                                : 'text-slate-300 hover:text-slate-500'
+                            }`}
+                            title={obj.isPixelForgeLocked ? 'Unlock layer' : 'Lock layer'}
+                          >
+                            {obj.isPixelForgeLocked ? (
+                              <Lock className="w-3 h-3" />
+                            ) : (
+                              <Unlock className="w-3 h-3" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleObjectVisibility(obj.id);
+                            }}
+                            className="p-0.5 text-slate-400 hover:text-slate-600 transition"
+                            title={isHidden ? 'Show layer' : 'Hide layer'}
+                          >
+                            {isHidden ? (
+                              <EyeOff className="w-3 h-3 text-slate-300" />
+                            ) : (
+                              <Eye className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -236,9 +338,10 @@ export const LayersPanel: React.FC = () => {
               {!collapsedCategories['shapes'] && (
                 <div className="pl-5 space-y-0.5">
                   {shapes.map((obj) => {
-                    const isSelected = selectedMockObjectId === obj.id;
+                    const isSelected = selectedMockObjectId === obj.id || selectedCanvasObject?.id === obj.id;
                     const isHidden = obj.visible === false;
                     const label =
+                      obj.name ||
                       obj.text ||
                       obj.type
                         .split('-')
@@ -259,20 +362,42 @@ export const LayersPanel: React.FC = () => {
                           {getShapeIcon(obj.type)}
                           <span className="truncate text-xs">{label}</span>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleObjectVisibility(obj.id);
-                          }}
-                          className="p-0.5 text-slate-400 hover:text-slate-600 transition"
-                          title={isHidden ? 'Show layer' : 'Hide layer'}
-                        >
-                          {isHidden ? (
-                            <EyeOff className="w-3 h-3 text-slate-300" />
-                          ) : (
-                            <Eye className="w-3 h-3" />
-                          )}
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleObjectLock(obj.id);
+                            }}
+                            className={`p-0.5 transition ${
+                              obj.isPixelForgeLocked
+                                ? 'text-[#F26B5B]'
+                                : 'text-slate-300 hover:text-slate-500'
+                            }`}
+                            title={obj.isPixelForgeLocked ? 'Unlock layer' : 'Lock layer'}
+                          >
+                            {obj.isPixelForgeLocked ? (
+                              <Lock className="w-3 h-3" />
+                            ) : (
+                              <Unlock className="w-3 h-3" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleObjectVisibility(obj.id);
+                            }}
+                            className="p-0.5 text-slate-400 hover:text-slate-600 transition"
+                            title={isHidden ? 'Show layer' : 'Hide layer'}
+                          >
+                            {isHidden ? (
+                              <EyeOff className="w-3 h-3 text-slate-300" />
+                            ) : (
+                              <Eye className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -280,7 +405,256 @@ export const LayersPanel: React.FC = () => {
               )}
             </div>
 
-            {/* Category 3: Text (2) */}
+            {/* Category: Tables */}
+            <div className="space-y-0.5">
+              <button
+                onClick={() => toggleCategory('tables')}
+                className="w-full flex items-center justify-between px-2 py-1 rounded hover:bg-slate-50 text-slate-600 font-semibold text-[11px]"
+              >
+                <div className="flex items-center gap-1.5">
+                  {collapsedCategories['tables'] ? (
+                    <ChevronRight className="w-3 h-3 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-3 h-3 text-slate-400" />
+                  )}
+                  <TableIcon className="w-3.5 h-3.5 text-[#6366F1]" />
+                  <span>Tables ({tables.length})</span>
+                </div>
+              </button>
+
+              {!collapsedCategories['tables'] && (
+                <div className="pl-5 space-y-0.5">
+                  {tables.map((obj, i) => {
+                    const isSelected = selectedMockObjectId === obj.id || selectedCanvasObject?.id === obj.id;
+                    const isHidden = obj.visible === false;
+                    const label =
+                      obj.name ||
+                      `Table (${obj.tableRows || 4}×${obj.tableCols || 3}) ${i + 1}`;
+
+                    return (
+                      <div
+                        key={obj.id}
+                        onClick={() => setSelectedMockObjectId(obj.id)}
+                        className={`flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer transition ${
+                          isSelected
+                            ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
+                            : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 pr-1">
+                          <TableIcon className="w-3.5 h-3.5 text-[#6366F1] flex-shrink-0" />
+                          <span className="truncate text-xs">{label}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleObjectLock(obj.id);
+                            }}
+                            className={`p-0.5 transition ${
+                              obj.isPixelForgeLocked
+                                ? 'text-[#F26B5B]'
+                                : 'text-slate-300 hover:text-slate-500'
+                            }`}
+                            title={obj.isPixelForgeLocked ? 'Unlock layer' : 'Lock layer'}
+                          >
+                            {obj.isPixelForgeLocked ? (
+                              <Lock className="w-3 h-3" />
+                            ) : (
+                              <Unlock className="w-3 h-3" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleObjectVisibility(obj.id);
+                            }}
+                            className="p-0.5 text-slate-400 hover:text-slate-600 transition"
+                            title={isHidden ? 'Show layer' : 'Hide layer'}
+                          >
+                            {isHidden ? (
+                              <EyeOff className="w-3 h-3 text-slate-300" />
+                            ) : (
+                              <Eye className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Category: Images */}
+            <div className="space-y-0.5">
+              <button
+                onClick={() => toggleCategory('images')}
+                className="w-full flex items-center justify-between px-2 py-1 rounded hover:bg-slate-50 text-slate-600 font-semibold text-[11px]"
+              >
+                <div className="flex items-center gap-1.5">
+                  {collapsedCategories['images'] ? (
+                    <ChevronRight className="w-3 h-3 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-3 h-3 text-slate-400" />
+                  )}
+                  <ImageIcon className="w-3.5 h-3.5 text-[#059669]" />
+                  <span>Images ({images.length})</span>
+                </div>
+              </button>
+
+              {!collapsedCategories['images'] && (
+                <div className="pl-5 space-y-0.5">
+                  {images.map((obj, i) => {
+                    const isSelected = selectedMockObjectId === obj.id || selectedCanvasObject?.id === obj.id;
+                    const isHidden = obj.visible === false;
+                    const label = obj.name || obj.imageName || `Image ${i + 1}`;
+
+                    return (
+                      <div
+                        key={obj.id}
+                        onClick={() => setSelectedMockObjectId(obj.id)}
+                        className={`flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer transition ${
+                          isSelected
+                            ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
+                            : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 pr-1">
+                          <ImageIcon className="w-3.5 h-3.5 text-[#059669] flex-shrink-0" />
+                          <span className="truncate text-xs">{label}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleObjectLock(obj.id);
+                            }}
+                            className={`p-0.5 transition ${
+                              obj.isPixelForgeLocked
+                                ? 'text-[#F26B5B]'
+                                : 'text-slate-300 hover:text-slate-500'
+                            }`}
+                            title={obj.isPixelForgeLocked ? 'Unlock layer' : 'Lock layer'}
+                          >
+                            {obj.isPixelForgeLocked ? (
+                              <Lock className="w-3 h-3" />
+                            ) : (
+                              <Unlock className="w-3 h-3" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleObjectVisibility(obj.id);
+                            }}
+                            className="p-0.5 text-slate-400 hover:text-slate-600 transition"
+                            title={isHidden ? 'Show layer' : 'Hide layer'}
+                          >
+                            {isHidden ? (
+                              <EyeOff className="w-3 h-3 text-slate-300" />
+                            ) : (
+                              <Eye className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Category: Charts & Graphs */}
+            <div className="space-y-0.5">
+              <button
+                onClick={() => toggleCategory('graphs')}
+                className="w-full flex items-center justify-between px-2 py-1 rounded hover:bg-slate-50 text-slate-600 font-semibold text-[11px]"
+              >
+                <div className="flex items-center gap-1.5">
+                  {collapsedCategories['graphs'] ? (
+                    <ChevronRight className="w-3 h-3 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-3 h-3 text-slate-400" />
+                  )}
+                  <BarChart2 className="w-3.5 h-3.5 text-[#F59E0B]" />
+                  <span>Charts ({graphs.length})</span>
+                </div>
+              </button>
+
+              {!collapsedCategories['graphs'] && (
+                <div className="pl-5 space-y-0.5">
+                  {graphs.map((obj, i) => {
+                    const isSelected = selectedMockObjectId === obj.id || selectedCanvasObject?.id === obj.id;
+                    const isHidden = obj.visible === false;
+                    const label =
+                      obj.name ||
+                      (obj.graphType
+                        ? `${obj.graphType.charAt(0).toUpperCase() + obj.graphType.slice(1)} Chart`
+                        : `Chart ${i + 1}`);
+
+                    return (
+                      <div
+                        key={obj.id}
+                        onClick={() => setSelectedMockObjectId(obj.id)}
+                        className={`flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer transition ${
+                          isSelected
+                            ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold'
+                            : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 pr-1">
+                          <BarChart2 className="w-3.5 h-3.5 text-[#F59E0B] flex-shrink-0" />
+                          <span className="truncate text-xs">{label}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleObjectLock(obj.id);
+                            }}
+                            className={`p-0.5 transition ${
+                              obj.isPixelForgeLocked
+                                ? 'text-[#F26B5B]'
+                                : 'text-slate-300 hover:text-slate-500'
+                            }`}
+                            title={obj.isPixelForgeLocked ? 'Unlock layer' : 'Lock layer'}
+                          >
+                            {obj.isPixelForgeLocked ? (
+                              <Lock className="w-3 h-3" />
+                            ) : (
+                              <Unlock className="w-3 h-3" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleObjectVisibility(obj.id);
+                            }}
+                            className="p-0.5 text-slate-400 hover:text-slate-600 transition"
+                            title={isHidden ? 'Show layer' : 'Hide layer'}
+                          >
+                            {isHidden ? (
+                              <EyeOff className="w-3 h-3 text-slate-300" />
+                            ) : (
+                              <Eye className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Category: Text */}
             <div className="space-y-0.5">
               <button
                 onClick={() => toggleCategory('text')}
@@ -299,8 +673,8 @@ export const LayersPanel: React.FC = () => {
 
               {!collapsedCategories['text'] && (
                 <div className="pl-5 space-y-0.5">
-                  {textItems.map((obj) => {
-                    const isSelected = selectedMockObjectId === obj.id;
+                  {textItems.map((obj, i) => {
+                    const isSelected = selectedMockObjectId === obj.id || selectedCanvasObject?.id === obj.id;
                     const isHidden = obj.visible === false;
                     return (
                       <div
@@ -315,23 +689,45 @@ export const LayersPanel: React.FC = () => {
                         <div className="flex items-center gap-2 min-w-0 pr-1">
                           <Type className="w-3 h-3 text-slate-400" />
                           <span className="truncate text-xs">
-                            {obj.text || 'Text Item'}
+                            {obj.name || obj.text || `Text ${i + 1}`}
                           </span>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleObjectVisibility(obj.id);
-                          }}
-                          className="p-0.5 text-slate-400 hover:text-slate-600 transition"
-                          title={isHidden ? 'Show layer' : 'Hide layer'}
-                        >
-                          {isHidden ? (
-                            <EyeOff className="w-3 h-3 text-slate-300" />
-                          ) : (
-                            <Eye className="w-3 h-3" />
-                          )}
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleObjectLock(obj.id);
+                            }}
+                            className={`p-0.5 transition ${
+                              obj.isPixelForgeLocked
+                                ? 'text-[#F26B5B]'
+                                : 'text-slate-300 hover:text-slate-500'
+                            }`}
+                            title={obj.isPixelForgeLocked ? 'Unlock layer' : 'Lock layer'}
+                          >
+                            {obj.isPixelForgeLocked ? (
+                              <Lock className="w-3 h-3" />
+                            ) : (
+                              <Unlock className="w-3 h-3" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleObjectVisibility(obj.id);
+                            }}
+                            className="p-0.5 text-slate-400 hover:text-slate-600 transition"
+                            title={isHidden ? 'Show layer' : 'Hide layer'}
+                          >
+                            {isHidden ? (
+                              <EyeOff className="w-3 h-3 text-slate-300" />
+                            ) : (
+                              <Eye className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -339,7 +735,7 @@ export const LayersPanel: React.FC = () => {
               )}
             </div>
 
-            {/* Category 4: Drawings (1) */}
+            {/* Category: Drawings */}
             <div className="space-y-0.5">
               <button
                 onClick={() => toggleCategory('drawings')}
@@ -359,7 +755,7 @@ export const LayersPanel: React.FC = () => {
               {!collapsedCategories['drawings'] && (
                 <div className="pl-5 space-y-0.5">
                   {drawings.map((obj, i) => {
-                    const isSelected = selectedMockObjectId === obj.id;
+                    const isSelected = selectedMockObjectId === obj.id || selectedCanvasObject?.id === obj.id;
                     const isHidden = obj.visible === false;
                     return (
                       <div
@@ -374,23 +770,45 @@ export const LayersPanel: React.FC = () => {
                         <div className="flex items-center gap-2 min-w-0 pr-1">
                           <PenTool className="w-3 h-3 text-slate-400" />
                           <span className="truncate text-xs">
-                            Vector Sketch {i + 1}
+                            {obj.name || (obj.type === 'highlighter' ? `Highlight ${i + 1}` : `Vector Sketch ${i + 1}`)}
                           </span>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleObjectVisibility(obj.id);
-                          }}
-                          className="p-0.5 text-slate-400 hover:text-slate-600 transition"
-                          title={isHidden ? 'Show layer' : 'Hide layer'}
-                        >
-                          {isHidden ? (
-                            <EyeOff className="w-3 h-3 text-slate-300" />
-                          ) : (
-                            <Eye className="w-3 h-3" />
-                          )}
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleObjectLock(obj.id);
+                            }}
+                            className={`p-0.5 transition ${
+                              obj.isPixelForgeLocked
+                                ? 'text-[#F26B5B]'
+                                : 'text-slate-300 hover:text-slate-500'
+                            }`}
+                            title={obj.isPixelForgeLocked ? 'Unlock layer' : 'Lock layer'}
+                          >
+                            {obj.isPixelForgeLocked ? (
+                              <Lock className="w-3 h-3" />
+                            ) : (
+                              <Unlock className="w-3 h-3" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleObjectVisibility(obj.id);
+                            }}
+                            className="p-0.5 text-slate-400 hover:text-slate-600 transition"
+                            title={isHidden ? 'Show layer' : 'Hide layer'}
+                          >
+                            {isHidden ? (
+                              <EyeOff className="w-3 h-3 text-slate-300" />
+                            ) : (
+                              <Eye className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -398,7 +816,7 @@ export const LayersPanel: React.FC = () => {
               )}
             </div>
 
-            {/* Category 5: Arrows (2) */}
+            {/* Category: Arrows */}
             <div className="space-y-0.5">
               <button
                 onClick={() => toggleCategory('arrows')}
@@ -418,10 +836,11 @@ export const LayersPanel: React.FC = () => {
               {!collapsedCategories['arrows'] && (
                 <div className="pl-5 space-y-0.5">
                   {arrows.map((obj, i) => {
-                    const isSelected = selectedMockObjectId === obj.id;
+                    const isSelected = selectedMockObjectId === obj.id || selectedCanvasObject?.id === obj.id;
                     const isHidden = obj.visible === false;
                     const label =
-                      i === 0 ? 'Frontend → API' : 'API → Database';
+                      obj.name ||
+                      (i === 0 && arrows.length === 2 ? 'Frontend → API' : i === 1 && arrows.length === 2 ? 'API → Database' : `Arrow ${i + 1}`);
                     return (
                       <div
                         key={obj.id}
@@ -436,20 +855,42 @@ export const LayersPanel: React.FC = () => {
                           <MoveRight className="w-3 h-3 text-slate-400" />
                           <span className="truncate text-xs">{label}</span>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleObjectVisibility(obj.id);
-                          }}
-                          className="p-0.5 text-slate-400 hover:text-slate-600 transition"
-                          title={isHidden ? 'Show layer' : 'Hide layer'}
-                        >
-                          {isHidden ? (
-                            <EyeOff className="w-3 h-3 text-slate-300" />
-                          ) : (
-                            <Eye className="w-3 h-3" />
-                          )}
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleObjectLock(obj.id);
+                            }}
+                            className={`p-0.5 transition ${
+                              obj.isPixelForgeLocked
+                                ? 'text-[#F26B5B]'
+                                : 'text-slate-300 hover:text-slate-500'
+                            }`}
+                            title={obj.isPixelForgeLocked ? 'Unlock layer' : 'Lock layer'}
+                          >
+                            {obj.isPixelForgeLocked ? (
+                              <Lock className="w-3 h-3" />
+                            ) : (
+                              <Unlock className="w-3 h-3" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleObjectVisibility(obj.id);
+                            }}
+                            className="p-0.5 text-slate-400 hover:text-slate-600 transition"
+                            title={isHidden ? 'Show layer' : 'Hide layer'}
+                          >
+                            {isHidden ? (
+                              <EyeOff className="w-3 h-3 text-slate-300" />
+                            ) : (
+                              <Eye className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -490,8 +931,9 @@ export const LayersPanel: React.FC = () => {
               {getShapeIcon(selectedObject.type)}
               <span>
                 Selected:{' '}
-                {selectedObject.type.charAt(0).toUpperCase() +
-                  selectedObject.type.slice(1)}
+                {selectedObject.name ||
+                  selectedObject.type.charAt(0).toUpperCase() +
+                    selectedObject.type.slice(1)}
               </span>
             </div>
             <span className="text-[10px] font-mono text-slate-400">
@@ -681,10 +1123,17 @@ export const LayersPanel: React.FC = () => {
           {selectedObject.type !== 'sticky' &&
             selectedObject.type !== 'text' &&
             selectedObject.type !== 'brush' &&
-            selectedObject.type !== 'highlighter' && (
+            selectedObject.type !== 'highlighter' &&
+            selectedObject.type !== 'table' &&
+            selectedObject.type !== 'image' &&
+            selectedObject.type !== 'graph' && (
               <div className="space-y-2.5">
                 {/* Fill Control (if not line/arrow) */}
-                {selectedObject.type !== 'line' && selectedObject.type !== 'arrow' && (
+                {selectedObject.type !== 'line' &&
+                  selectedObject.type !== 'arrow' &&
+                  selectedObject.type !== 'wavy' &&
+                  selectedObject.type !== 'smooth' &&
+                  selectedObject.type !== 'hinged' && (
                   <div className="space-y-1">
                     <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                       Fill & Opacity
@@ -759,7 +1208,7 @@ export const LayersPanel: React.FC = () => {
                 </div>
 
                 {/* Border Radius Control (for rect and rounded-rect) */}
-                {(selectedObject.type === 'rectangle' || selectedObject.type === 'rounded-rectangle') && (
+                {(selectedObject.type === 'rectangle' || selectedObject.type === 'rounded-rectangle' || selectedObject.type === 'square' || selectedObject.type === 'roundedRect') && (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -832,6 +1281,63 @@ export const LayersPanel: React.FC = () => {
                 )}
               </div>
             )}
+
+          {/* E. TABLE INSPECTOR */}
+          {selectedObject.type === 'table' && (
+            <div className="space-y-2.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-400 font-semibold uppercase text-[10px]">Dimensions</span>
+                <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200 font-medium text-[11px]">
+                  {selectedObject.tableRows || 4} Rows × {selectedObject.tableCols || 3} Columns
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded border border-slate-200 leading-relaxed">
+                Double-click any cell on the whiteboard canvas to edit its text.
+              </div>
+            </div>
+          )}
+
+          {/* F. IMAGE INSPECTOR */}
+          {selectedObject.type === 'image' && (
+            <div className="space-y-2.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-400 font-semibold uppercase text-[10px]">File Name</span>
+                <span className="truncate max-w-[140px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium text-[11px]">
+                  {selectedObject.imageName || selectedObject.name || 'Image'}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Opacity
+                </label>
+                <select
+                  value={`${currentOpacity}%`}
+                  onChange={(e) => {
+                    const op = parseInt(e.target.value, 10) / 100;
+                    updateObjectProperties(selectedObject.id, { opacity: op });
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs text-slate-700 outline-none cursor-pointer"
+                >
+                  <option value="100%">100%</option>
+                  <option value="75%">75%</option>
+                  <option value="50%">50%</option>
+                  <option value="25%">25%</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* G. GRAPH / CHART INSPECTOR */}
+          {selectedObject.type === 'graph' && (
+            <div className="space-y-2.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-400 font-semibold uppercase text-[10px]">Chart Type</span>
+                <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-medium text-[11px] capitalize">
+                  {selectedObject.graphType || 'Bar'}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="border-t border-slate-200 bg-slate-50/70 p-4 text-center">

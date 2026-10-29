@@ -6,6 +6,7 @@ import {
   Minimize2,
   Copy,
   Map,
+  LayoutGrid,
 } from 'lucide-react';
 
 export const BottomRightControls: React.FC = () => {
@@ -18,6 +19,9 @@ export const BottomRightControls: React.FC = () => {
     isLayersPanelOpen,
     zoom,
     pan,
+    setPan,
+    resetZoom,
+    setActiveTool,
     mockObjects,
     selectedMockObjectId,
     canvasEngine,
@@ -59,6 +63,20 @@ export const BottomRightControls: React.FC = () => {
         aria-label="Canvas action controls"
       >
         <div className="bg-white border border-[#EFE5D8] rounded-full shadow-md px-3 py-1 flex items-center gap-1.5 text-[#302633]">
+          {/* Center Canvas */}
+          <button
+            onClick={() => {
+              setActiveTool('select');
+              resetZoom();
+              setPan({ x: 0, y: 0 });
+            }}
+            className="p-1.5 rounded-full hover:bg-[#FFF9F0] text-[#302633]/70 hover:text-[#302633] transition cursor-pointer"
+            title="Center Canvas & Reset Viewport"
+            aria-label="Center Canvas"
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+
           {/* Grid Toggle */}
           <button
             onClick={toggleGridSnap}

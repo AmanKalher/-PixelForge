@@ -145,6 +145,10 @@ export function useKeyboardShortcuts({
           e.preventDefault();
           onSelectTool('select');
           break;
+        case 'q':
+          e.preventDefault();
+          onSelectTool('lasso');
+          break;
         case 'h':
           e.preventDefault();
           onSelectTool('pan');

@@ -3,7 +3,7 @@ import { useWorkspace } from '../../context/WorkspaceContext';
 import { ShapeSubtype, ToolType } from '../../types/whiteboard';
 import {
   MousePointer,
-  Hand,
+  LassoSelect,
   StickyNote,
   Square,
   Circle,
@@ -76,15 +76,27 @@ export const FloatingBoardToolbar: React.FC<FloatingBoardToolbarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isShapesPopoverOpen, setIsShapesPopoverOpen]);
 
-  const isShapeActive =
-    activeTool === 'rectangle' ||
-    activeTool === 'rounded-rectangle' ||
-    activeTool === 'circle' ||
-    activeTool === 'ellipse' ||
-    activeTool === 'diamond' ||
-    activeTool === 'triangle' ||
-    activeTool === 'line' ||
-    activeTool === 'arrow';
+  const isShapeActive = Boolean(
+    activeTool &&
+      ![
+        'select',
+        'pan',
+        'brush',
+        'highlighter',
+        'eraser',
+        'sticky',
+        'text',
+        'pen',
+        'marker',
+        'pencil',
+        'calligraphy',
+        'table',
+        'graph',
+        'curve',
+        'image',
+        'group',
+      ].includes(activeTool)
+  );
 
   const isBrushActive =
     activeTool === 'brush' ||
@@ -168,18 +180,18 @@ export const FloatingBoardToolbar: React.FC<FloatingBoardToolbarProps> = ({
             <MousePointer className="w-4 h-4" />
           </button>
 
-          {/* 2. Hand / Pan (H) */}
+          {/* 2. Lasso Select (Q) */}
           <button
-            onClick={() => setActiveTool('pan')}
+            onClick={() => setActiveTool('lasso')}
             className={`p-2 rounded-full transition cursor-pointer ${
-              activeTool === 'pan'
+              activeTool === 'lasso'
                 ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold ring-1 ring-[#FCD9D3] shadow-2xs'
                 : 'hover:bg-[#FFF9F0] text-[#302633]/70 hover:text-[#302633]'
             }`}
-            title="Pan Canvas (H) or hold Space"
-            aria-label="Pan Tool"
+            title="Lasso Select (Q)"
+            aria-label="Lasso Select Tool"
           >
-            <Hand className="w-4 h-4" />
+            <LassoSelect className="w-4 h-4" />
           </button>
 
           {/* Divider */}
@@ -387,18 +399,18 @@ export const FloatingBoardToolbar: React.FC<FloatingBoardToolbarProps> = ({
           <MousePointer className="w-4 h-4" />
         </button>
 
-        {/* 2. Hand / Pan (H) */}
+        {/* 2. Lasso Select (Q) */}
         <button
-          onClick={() => setActiveTool('pan')}
+          onClick={() => setActiveTool('lasso')}
           className={`p-1.5 rounded-full transition cursor-pointer ${
-            activeTool === 'pan'
+            activeTool === 'lasso'
               ? 'bg-[#FFF0ED] text-[#F26B5B] font-semibold ring-1 ring-[#FCD9D3] shadow-2xs'
               : 'hover:bg-[#FFF9F0] text-[#302633]/70 hover:text-[#302633]'
           }`}
-          title="Pan Canvas (H) or hold Space"
-          aria-label="Pan Tool"
+          title="Lasso Select (Q)"
+          aria-label="Lasso Select Tool"
         >
-          <Hand className="w-4 h-4" />
+          <LassoSelect className="w-4 h-4" />
         </button>
 
         {/* Divider */}

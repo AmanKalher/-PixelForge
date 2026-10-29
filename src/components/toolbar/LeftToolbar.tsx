@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { STICKY_TEMPLATES } from '../../engine/stickyNoteTemplates';
+import { SHAPE_CATEGORIES } from '../../engine/shapeDefinitions';
 import { ShapeSubtype, ToolType } from '../../types/whiteboard';
 import {
   Type,
   PenTool,
-  Folder,
+  Hand,
   Layers,
   History,
-  Sliders,
   X,
   Plus,
   Check,
@@ -20,6 +20,10 @@ import {
   Diamond,
   Triangle,
   ChevronLeft,
+  Image as ImageIcon,
+  Star,
+  Heart,
+  Sparkles,
 } from 'lucide-react';
 
 // Custom Elements icon matching reference screenshot (heart, play, note, circle)
@@ -174,6 +178,95 @@ const ShapesCategoryIcon: React.FC<{ className?: string }> = ({ className = 'w-1
   </svg>
 );
 
+// Original Custom Tables Category Illustration
+const TablesCategoryIcon: React.FC<{ className?: string }> = ({ className = 'w-14 h-14' }) => (
+  <svg
+    viewBox="0 0 56 56"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    aria-hidden="true"
+  >
+    <defs>
+      <filter id="pf-tables-sh" x="-15%" y="-15%" width="130%" height="130%">
+        <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#302633" floodOpacity="0.12" />
+      </filter>
+      <linearGradient id="pf-table-hdr" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#C7D2FE" />
+        <stop offset="100%" stopColor="#818CF8" />
+      </linearGradient>
+    </defs>
+    <g filter="url(#pf-tables-sh)">
+      <rect x="8" y="10" width="40" height="36" rx="6" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="1.5" />
+      <path d="M8 16C8 12.6863 10.6863 10 14 10H42C45.3137 10 48 12.6863 48 16V22H8V16Z" fill="url(#pf-table-hdr)" />
+      <line x1="28" y1="10" x2="28" y2="46" stroke="#CBD5E1" strokeWidth="1.5" />
+      <line x1="8" y1="34" x2="48" y2="34" stroke="#E2E8F0" strokeWidth="1.5" />
+      <rect x="12" y="14" width="10" height="3" rx="1.5" fill="#FFFFFF" opacity="0.9" />
+      <rect x="32" y="14" width="12" height="3" rx="1.5" fill="#FFFFFF" opacity="0.9" />
+      <rect x="12" y="26" width="11" height="2.5" rx="1.25" fill="#94A3B8" />
+      <rect x="32" y="26" width="9" height="2.5" rx="1.25" fill="#94A3B8" />
+      <rect x="12" y="38" width="8" height="2.5" rx="1.25" fill="#94A3B8" />
+      <rect x="32" y="38" width="11" height="2.5" rx="1.25" fill="#94A3B8" />
+    </g>
+  </svg>
+);
+
+// Original Custom Graphs Category Illustration
+const GraphsCategoryIcon: React.FC<{ className?: string }> = ({ className = 'w-14 h-14' }) => (
+  <svg
+    viewBox="0 0 56 56"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    aria-hidden="true"
+  >
+    <defs>
+      <filter id="pf-graphs-sh" x="-15%" y="-15%" width="130%" height="130%">
+        <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#302633" floodOpacity="0.12" />
+      </filter>
+      <linearGradient id="pf-graph-bar1" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#818CF8" />
+        <stop offset="100%" stopColor="#6366F1" />
+      </linearGradient>
+      <linearGradient id="pf-graph-bar2" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#FF9688" />
+        <stop offset="100%" stopColor="#F26B5B" />
+      </linearGradient>
+      <linearGradient id="pf-graph-bar3" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#FCD34D" />
+        <stop offset="100%" stopColor="#F59E0B" />
+      </linearGradient>
+      <linearGradient id="pf-graph-bar4" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#34D399" />
+        <stop offset="100%" stopColor="#10B981" />
+      </linearGradient>
+    </defs>
+    <g filter="url(#pf-graphs-sh)">
+      <rect x="8" y="10" width="40" height="36" rx="6" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="1.5" />
+      <line x1="12" y1="40" x2="44" y2="40" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" />
+      <rect x="14" y="28" width="5.5" height="12" rx="2" fill="url(#pf-graph-bar1)" />
+      <rect x="22" y="18" width="5.5" height="22" rx="2" fill="url(#pf-graph-bar2)" />
+      <rect x="30" y="24" width="5.5" height="16" rx="2" fill="url(#pf-graph-bar3)" />
+      <rect x="38" y="15" width="5.5" height="25" rx="2" fill="url(#pf-graph-bar4)" />
+      <path d="M16 26 L24 16 L33 22 L41 13" stroke="#6366F1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <circle cx="41" cy="13" r="2" fill="#6366F1" />
+    </g>
+  </svg>
+);
+
+const renderShapeIcon = (shape: string) => {
+  if (['rectangle', 'square'].includes(shape)) return <Square className="w-3.5 h-3.5" />;
+  if (['rounded-rectangle', 'roundedRect'].includes(shape)) return <Square className="w-3.5 h-3.5 rounded-xs" />;
+  if (['circle', 'ellipse'].includes(shape)) return <Circle className="w-3.5 h-3.5" />;
+  if (shape === 'triangle') return <Triangle className="w-3.5 h-3.5" />;
+  if (['diamond', 'parallelogram', 'trapezoid', 'pentagon', 'hexagon', 'heptagon', 'octagon', 'nonagon', 'decagon'].includes(shape)) return <Diamond className="w-3.5 h-3.5" />;
+  if (['line', 'wavy', 'smooth', 'hinged'].includes(shape)) return <Minus className="w-3.5 h-3.5" />;
+  if (['arrow', 'arrowUp', 'arrowDown', 'arrowLeft', 'arrowRight', 'doubleArrow', 'chevron'].includes(shape)) return <MoveRight className="w-3.5 h-3.5" />;
+  if (['star4', 'star5', 'star6', 'star8', 'burst', 'sun', 'gear'].includes(shape)) return <Star className="w-3.5 h-3.5" />;
+  if (shape === 'heart') return <Heart className="w-3.5 h-3.5" />;
+  return <Sparkles className="w-3.5 h-3.5" />;
+};
+
 export const LeftToolbar: React.FC = () => {
   const {
     activeNav,
@@ -181,10 +274,10 @@ export const LeftToolbar: React.FC = () => {
     isLayersPanelOpen,
     toggleLayersPanel,
     isHistoryModalOpen,
-    setIsSimulationDrawerOpen,
     setIsHistoryModalOpen,
     resetZoom,
     setPan,
+    activeTool,
     setActiveTool,
     setActiveShape,
     activeShape,
@@ -192,14 +285,26 @@ export const LeftToolbar: React.FC = () => {
     setSelectedStickyTemplate,
     canvasEngine,
     addTextBox,
+    addTable,
+    addGraph,
+    addImage,
     createMockObject,
     isUIPreviewMode,
-    boardTitle,
   } = useWorkspace();
 
-  const [elementsSubcategory, setElementsSubcategory] = useState<'overview' | 'sticky' | 'shapes'>('overview');
+  const [elementsSubcategory, setElementsSubcategory] = useState<
+    'overview' | 'sticky' | 'shapes' | 'tables' | 'graphs'
+  >('overview');
 
-  const handleNavClick = (nav: 'elements' | 'text' | 'tools' | 'projects') => {
+  const [tableRows, setTableRows] = useState(4);
+  const [tableCols, setTableCols] = useState(3);
+  const [graphType, setGraphType] = useState('bar');
+  const [graphData, setGraphData] = useState('Label,Value\nA,12\nB,19\nC,8\nD,15');
+  const [selectedShapeCategory, setSelectedShapeCategory] = useState<string>('All');
+  const [imageMessage, setImageMessage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleNavClick = (nav: 'elements' | 'text' | 'tools') => {
     if (activeNav === nav) {
       setActiveNav(null);
     } else {
@@ -248,16 +353,39 @@ export const LeftToolbar: React.FC = () => {
     }
   };
 
-  const shapesList: { shape: ShapeSubtype; label: string; icon: React.ReactNode; shortcut: string }[] = [
-    { shape: 'rectangle', label: 'Rectangle', icon: <Square className="w-3.5 h-3.5" />, shortcut: 'R' },
-    { shape: 'rounded-rectangle', label: 'Rounded Rect', icon: <Square className="w-3.5 h-3.5 rounded-xs" />, shortcut: 'U' },
-    { shape: 'circle', label: 'Circle', icon: <Circle className="w-3.5 h-3.5" />, shortcut: 'O' },
-    { shape: 'ellipse', label: 'Ellipse', icon: <Circle className="w-3.5 h-3.5 scale-x-125" />, shortcut: 'E' },
-    { shape: 'diamond', label: 'Diamond', icon: <Diamond className="w-3.5 h-3.5" />, shortcut: 'D' },
-    { shape: 'triangle', label: 'Triangle', icon: <Triangle className="w-3.5 h-3.5" />, shortcut: 'Y' },
-    { shape: 'line', label: 'Line', icon: <Minus className="w-3.5 h-3.5" />, shortcut: 'N' },
-    { shape: 'arrow', label: 'Arrow', icon: <MoveRight className="w-3.5 h-3.5" />, shortcut: 'A' },
-  ];
+  const handleDropTable = () => {
+    addTable({ rows: tableRows, cols: tableCols });
+    setActiveTool('select');
+  };
+
+  const handleDropGraph = () => {
+    addGraph({ graphType, data: graphData });
+    setActiveTool('select');
+  };
+
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setImageMessage('Uploading image...');
+      await addImage(file);
+      setImageMessage(null);
+      setActiveTool('select');
+    } catch (err: any) {
+      setImageMessage(err?.message || 'Failed to upload image.');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const allShapes = SHAPE_CATEGORIES.flatMap((c) =>
+    c.options.map(([id, label]) => ({ shape: id as ShapeSubtype, label, category: c.label }))
+  );
+
+  const displayedShapes =
+    selectedShapeCategory === 'All'
+      ? allShapes
+      : allShapes.filter((s) => s.category === selectedShapeCategory);
 
   return (
     <>
@@ -349,34 +477,41 @@ export const LeftToolbar: React.FC = () => {
             </span>
           </button>
 
-          {/* 4. Projects */}
+          {/* Pan Tool */}
           <button
-            onClick={() => handleNavClick('projects')}
+            onClick={() => {
+              if (activeTool === 'pan') {
+                setActiveTool('select');
+              } else {
+                setActiveTool('pan');
+                setActiveNav(null);
+              }
+            }}
             className={`flex flex-col items-center justify-center w-full py-1.5 rounded-xl transition cursor-pointer group ${
-              activeNav === 'projects' ? 'text-[#F26B5B]' : 'text-[#302633]/70 hover:text-[#302633]'
+              activeTool === 'pan' ? 'text-[#F26B5B]' : 'text-[#302633]/70 hover:text-[#302633]'
             }`}
-            title="Projects (Boards & Whiteboard Info)"
-            aria-label="Projects"
+            title="Pan Canvas (H) or hold Space"
+            aria-label="Pan Tool"
           >
             <div
               className={`w-11 h-9 rounded-2xl flex items-center justify-center transition ${
-                activeNav === 'projects'
+                activeTool === 'pan'
                   ? 'bg-[#FFF0ED] text-[#F26B5B] shadow-2xs ring-1 ring-[#FCD9D3]'
                   : 'group-hover:bg-[#FFF9F0]'
               }`}
             >
-              <Folder className="w-5 h-5" />
+              <Hand className="w-5 h-5" />
             </div>
             <span
               className={`text-[11px] mt-1 tracking-tight transition ${
-                activeNav === 'projects' ? 'font-bold text-[#F26B5B]' : 'font-medium'
+                activeTool === 'pan' ? 'font-bold text-[#F26B5B]' : 'font-medium'
               }`}
             >
-              Projects
+              Pan
             </span>
           </button>
 
-          {/* 5. Layer Tree */}
+          {/* 4. Layer Tree */}
           <button
             onClick={() => toggleLayersPanel()}
             className={`flex flex-col items-center justify-center w-full py-1.5 rounded-xl transition cursor-pointer group ${
@@ -431,15 +566,19 @@ export const LeftToolbar: React.FC = () => {
           </button>
         </nav>
 
-        {/* Bottom: Simulation Settings & Version */}
+        {/* Bottom: Center Canvas & Version */}
         <div className="flex flex-col items-center gap-2 w-full pt-2 border-t border-[#EFE5D8]">
           <button
-            onClick={() => setIsSimulationDrawerOpen(true)}
+            onClick={() => {
+              setActiveTool('select');
+              resetZoom();
+              setPan({ x: 0, y: 0 });
+            }}
             className="p-2 rounded-xl text-[#302633]/60 hover:text-[#F26B5B] hover:bg-[#FFF0ED] transition cursor-pointer shadow-2xs"
-            title="Open Simulation Settings"
-            aria-label="Simulation Settings"
+            title="Center Canvas (Reset Viewport & Zoom)"
+            aria-label="Center Canvas"
           >
-            <Sliders className="w-4 h-4" />
+            <LayoutGrid className="w-4 h-4" />
           </button>
           <span className="text-[9px] font-mono text-[#302633]/40">v0.1</span>
         </div>
@@ -469,6 +608,10 @@ export const LeftToolbar: React.FC = () => {
                   ? 'Sticky notes'
                   : elementsSubcategory === 'shapes'
                   ? 'Shapes'
+                  : elementsSubcategory === 'tables'
+                  ? 'Tables'
+                  : elementsSubcategory === 'graphs'
+                  ? 'Charts & Graphs'
                   : 'Browse categories'}
               </h2>
             </div>
@@ -495,7 +638,6 @@ export const LeftToolbar: React.FC = () => {
                     }}
                     className="group bg-[#FFFDF9] hover:bg-[#FFF9F0] border border-[#EFE5D8] hover:border-[#F26B5B]/40 rounded-2xl p-3 flex flex-col items-center gap-2.5 transition shadow-2xs hover:shadow-xs cursor-pointer text-center"
                   >
-                    {/* Original Custom Sticky Notes Graphic */}
                     <div className="w-20 h-20 rounded-2xl bg-[#FFF9EE] border border-[#FDE68A]/60 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
                       <StickyNotesCategoryIcon />
                     </div>
@@ -512,7 +654,6 @@ export const LeftToolbar: React.FC = () => {
                     }}
                     className="group bg-[#FFFDF9] hover:bg-[#FFF9F0] border border-[#EFE5D8] hover:border-[#F26B5B]/40 rounded-2xl p-3 flex flex-col items-center gap-2.5 transition shadow-2xs hover:shadow-xs cursor-pointer text-center"
                   >
-                    {/* Original Custom Shapes Graphic */}
                     <div className="w-20 h-20 rounded-2xl bg-[#F5F3FF] border border-[#DDD6FE]/60 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
                       <ShapesCategoryIcon />
                     </div>
@@ -520,9 +661,60 @@ export const LeftToolbar: React.FC = () => {
                       Shapes
                     </span>
                   </button>
+
+                  {/* Category Card 3: Tables */}
+                  <button
+                    onClick={() => {
+                      setElementsSubcategory('tables');
+                    }}
+                    className="group bg-[#FFFDF9] hover:bg-[#FFF9F0] border border-[#EFE5D8] hover:border-[#F26B5B]/40 rounded-2xl p-3 flex flex-col items-center gap-2.5 transition shadow-2xs hover:shadow-xs cursor-pointer text-center"
+                  >
+                    <div className="w-20 h-20 rounded-2xl bg-[#EEF2FF] border border-[#C7D2FE]/60 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                      <TablesCategoryIcon />
+                    </div>
+                    <span className="text-xs font-bold text-[#302633] group-hover:text-[#F26B5B] transition">
+                      Tables
+                    </span>
+                  </button>
+
+                  {/* Category Card 4: Graphs */}
+                  <button
+                    onClick={() => {
+                      setElementsSubcategory('graphs');
+                    }}
+                    className="group bg-[#FFFDF9] hover:bg-[#FFF9F0] border border-[#EFE5D8] hover:border-[#F26B5B]/40 rounded-2xl p-3 flex flex-col items-center gap-2.5 transition shadow-2xs hover:shadow-xs cursor-pointer text-center"
+                  >
+                    <div className="w-20 h-20 rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0]/60 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                      <GraphsCategoryIcon />
+                    </div>
+                    <span className="text-xs font-bold text-[#302633] group-hover:text-[#F26B5B] transition">
+                      Charts & Graphs
+                    </span>
+                  </button>
                 </div>
 
-                <div className="pt-2 text-[11px] text-[#302633]/60 leading-relaxed bg-[#FFFDF9] border border-[#EFE5D8] rounded-xl p-3">
+                {/* Upload Image Section */}
+                <div className="pt-2 border-t border-[#F0EAE1]">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full py-2.5 px-3 rounded-xl border border-dashed border-[#CBD5E1] hover:border-[#F26B5B] bg-[#FFFDF9] hover:bg-[#FFF0ED] text-[#302633] hover:text-[#F26B5B] text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+                  >
+                    <ImageIcon className="w-4 h-4 text-[#F26B5B]" />
+                    <span>Upload Image to Board</span>
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handleImageFileChange}
+                  />
+                  {imageMessage && (
+                    <p className="text-[10px] text-[#F26B5B] text-center mt-1">{imageMessage}</p>
+                  )}
+                </div>
+
+                <div className="text-[11px] text-[#302633]/60 leading-relaxed bg-[#FFFDF9] border border-[#EFE5D8] rounded-xl p-3">
                   Select a category above to choose templates, drop items directly onto the whiteboard, or switch your active tool.
                 </div>
               </>
@@ -570,7 +762,6 @@ export const LeftToolbar: React.FC = () => {
                   })}
                 </div>
 
-                {/* Primary Action Button shifted to bottom of templates */}
                 <button
                   onClick={() => handlePlaceSticky()}
                   className="w-full py-2.5 px-4 bg-[#F26B5B] hover:bg-[#E05A4A] active:bg-[#CC4E3F] text-white text-xs font-semibold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer mt-1"
@@ -583,12 +774,27 @@ export const LeftToolbar: React.FC = () => {
 
             {elementsSubcategory === 'shapes' && (
               <div className="space-y-3">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#302633]/60">
-                  Geometric Shapes
-                </span>
+                {/* Category Selector Tabs */}
+                <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px]">
+                  {['All', ...SHAPE_CATEGORIES.map((c) => c.label)].map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setSelectedShapeCategory(cat)}
+                      className={`px-2.5 py-1 rounded-full whitespace-nowrap transition cursor-pointer shrink-0 ${
+                        selectedShapeCategory === cat
+                          ? 'bg-[#F26B5B] text-white font-semibold shadow-2xs'
+                          : 'bg-[#FFF9F0] border border-[#EFE5D8] text-[#302633]/70 hover:text-[#302633]'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
 
-                <div className="grid grid-cols-2 gap-1.5">
-                  {shapesList.map(({ shape, label, icon, shortcut }) => {
+                {/* Filtered Shapes Grid */}
+                <div className="grid grid-cols-2 gap-1.5 max-h-[300px] overflow-y-auto pr-1">
+                  {displayedShapes.map(({ shape, label }) => {
                     const isSelected = activeShape === shape;
                     return (
                       <button
@@ -602,14 +808,12 @@ export const LeftToolbar: React.FC = () => {
                             ? 'border-[#F26B5B] bg-[#FFF0ED] text-[#F26B5B] font-semibold shadow-2xs'
                             : 'border-[#EFE5D8] hover:border-[#F26B5B]/30 hover:bg-[#FFF9F0] text-[#302633]'
                         }`}
+                        title={label}
                       >
-                        <div className="flex items-center gap-2">
-                          {icon}
-                          <span className="text-xs">{label}</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          {renderShapeIcon(shape)}
+                          <span className="text-xs truncate">{label}</span>
                         </div>
-                        <kbd className="text-[9px] font-mono text-[#302633]/40 bg-[#FFF9F0] px-1 rounded">
-                          {shortcut}
-                        </kbd>
                       </button>
                     );
                   })}
@@ -622,6 +826,152 @@ export const LeftToolbar: React.FC = () => {
                 >
                   <Plus className="w-4 h-4" />
                   <span>Drop on Board</span>
+                </button>
+              </div>
+            )}
+
+            {elementsSubcategory === 'tables' && (
+              <div className="space-y-4">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#302633]/60">
+                  Customizable Grid Table
+                </span>
+
+                <div className="space-y-3 bg-[#FFFDF9] border border-[#EFE5D8] rounded-xl p-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-[#302633]">Rows ({tableRows})</label>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setTableRows((r) => Math.max(2, r - 1))}
+                        className="w-7 h-7 rounded-lg border border-[#EFE5D8] bg-white flex items-center justify-center text-xs font-bold text-[#302633] hover:bg-[#FFF9F0] cursor-pointer"
+                      >
+                        -
+                      </button>
+                      <span className="w-6 text-center text-xs font-mono font-semibold">{tableRows}</span>
+                      <button
+                        type="button"
+                        onClick={() => setTableRows((r) => Math.min(12, r + 1))}
+                        className="w-7 h-7 rounded-lg border border-[#EFE5D8] bg-white flex items-center justify-center text-xs font-bold text-[#302633] hover:bg-[#FFF9F0] cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-[#302633]">Columns ({tableCols})</label>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setTableCols((c) => Math.max(2, c - 1))}
+                        className="w-7 h-7 rounded-lg border border-[#EFE5D8] bg-white flex items-center justify-center text-xs font-bold text-[#302633] hover:bg-[#FFF9F0] cursor-pointer"
+                      >
+                        -
+                      </button>
+                      <span className="w-6 text-center text-xs font-mono font-semibold">{tableCols}</span>
+                      <button
+                        type="button"
+                        onClick={() => setTableCols((c) => Math.min(8, c + 1))}
+                        className="w-7 h-7 rounded-lg border border-[#EFE5D8] bg-white flex items-center justify-center text-xs font-bold text-[#302633] hover:bg-[#FFF9F0] cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Table miniature grid visualization */}
+                <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl flex flex-col items-center justify-center">
+                  <div
+                    className="grid gap-1 max-w-[200px]"
+                    style={{ gridTemplateColumns: `repeat(${tableCols}, minmax(0, 1fr))` }}
+                  >
+                    {Array.from({ length: tableRows * tableCols }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={`h-4 w-7 rounded-xs border text-[8px] flex items-center justify-center ${
+                          Math.floor(i / tableCols) === 0
+                            ? 'bg-[#E9E7FF] border-[#818CF8]'
+                            : 'bg-white border-[#CBD5E1]'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[10px] text-slate-500 mt-2 font-mono">
+                    {tableRows} rows × {tableCols} columns
+                  </span>
+                </div>
+
+                <button
+                  onClick={handleDropTable}
+                  className="w-full py-2.5 px-4 bg-[#F26B5B] hover:bg-[#E05A4A] active:bg-[#CC4E3F] text-white text-xs font-semibold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer mt-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Drop Table on Board</span>
+                </button>
+              </div>
+            )}
+
+            {elementsSubcategory === 'graphs' && (
+              <div className="space-y-4">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#302633]/60">
+                  Data Chart / Graph
+                </span>
+
+                <div className="space-y-3 bg-[#FFFDF9] border border-[#EFE5D8] rounded-xl p-3">
+                  <div>
+                    <label className="text-xs font-semibold text-[#302633] block mb-1">Chart Type</label>
+                    <select
+                      value={graphType}
+                      onChange={(e) => setGraphType(e.target.value)}
+                      className="w-full text-xs p-2 rounded-lg border border-[#EFE5D8] bg-white text-[#302633] focus:outline-none focus:border-[#F26B5B]"
+                    >
+                      <option value="bar">Bar chart</option>
+                      <option value="horizontal_bar">Horizontal bar chart</option>
+                      <option value="line">Line chart</option>
+                      <option value="area">Area chart</option>
+                      <option value="scatter">Scatter plot</option>
+                      <option value="pie">Pie chart</option>
+                      <option value="doughnut">Doughnut chart</option>
+                      <option value="radar">Radar chart</option>
+                      <option value="polar_area">Polar area chart</option>
+                      <option value="wavy">Wavy chart</option>
+                      <option value="histogram">Histogram</option>
+                      <option value="stacked_bar">Stacked bar</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-[#302633]">CSV Data (Label, Value)</label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setGraphData(
+                            'Label,Value\nDesign,32\nEngineering,45\nMarketing,18\nResearch,24'
+                          )
+                        }
+                        className="text-[10px] text-[#F26B5B] hover:underline cursor-pointer"
+                      >
+                        Load sample
+                      </button>
+                    </div>
+                    <textarea
+                      value={graphData}
+                      onChange={(e) => setGraphData(e.target.value)}
+                      rows={4}
+                      className="w-full text-xs font-mono p-2 rounded-lg border border-[#EFE5D8] bg-white text-[#302633] focus:outline-none focus:border-[#F26B5B] resize-none"
+                      placeholder={'Label,Value\nA,12\nB,19'}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleDropGraph}
+                  className="w-full py-2.5 px-4 bg-[#F26B5B] hover:bg-[#E05A4A] active:bg-[#CC4E3F] text-white text-xs font-semibold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer mt-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Drop Graph on Board</span>
                 </button>
               </div>
             )}
@@ -708,79 +1058,6 @@ export const LeftToolbar: React.FC = () => {
 
             <div className="p-3 bg-[#FFFDF9] border border-[#EFE5D8] rounded-xl text-[11px] text-[#302633]/70 leading-relaxed">
               💡 Click anywhere on the whiteboard with the Text tool active (shortcut: <kbd className="font-mono bg-white px-1 border border-[#EFE5D8] rounded">T</kbd>) to place a new text box.
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 4. Projects Flyout Panel */}
-      {activeNav === 'projects' && (
-        <div
-          className="fixed top-[76px] bottom-0 left-[72px] w-80 bg-white border-r border-[#EFE5D8] z-20 shadow-md flex flex-col animate-in fade-in slide-in-from-left-2 duration-150 select-none"
-          role="region"
-          aria-label="Projects Panel"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-[#F0EAE1]">
-            <h2 className="text-base font-bold text-[#302633]">Projects</h2>
-            <button
-              onClick={() => setActiveNav(null)}
-              className="p-1.5 rounded-full hover:bg-[#FFF9F0] text-[#302633]/50 hover:text-[#302633] transition cursor-pointer"
-              title="Close panel"
-              aria-label="Close panel"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Panel Body */}
-          <div className="p-4 overflow-y-auto flex-1 space-y-4">
-            {/* Current Active Board Info */}
-            <div className="p-3 bg-[#FFFDF9] border border-[#EFE5D8] rounded-xl space-y-1.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#302633]/40">
-                Current Whiteboard
-              </div>
-              <div className="font-bold text-sm text-[#302633]">
-                {boardTitle || 'Untitled Board'}
-              </div>
-              <div className="flex items-center justify-between pt-1 text-[11px]">
-                <span className="text-[#3B5B3E] font-medium">• Live · Connected</span>
-                <button
-                  onClick={() => {
-                    setActiveTool('select');
-                    resetZoom();
-                    setPan({ x: 0, y: 0 });
-                  }}
-                  className="text-[#F26B5B] hover:text-[#E05A4A] font-semibold flex items-center gap-1 cursor-pointer"
-                  title="Reset and center canvas viewport"
-                >
-                  <LayoutGrid className="w-3 h-3" />
-                  <span>Center Canvas</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Preserved Navigation Actions */}
-            <div className="space-y-2">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#302633]/50">
-                Board Management
-              </div>
-
-              {/* Simulation Settings */}
-              <button
-                onClick={() => setIsSimulationDrawerOpen(true)}
-                className="w-full flex items-center justify-between p-3 rounded-xl border border-[#EFE5D8] hover:border-[#F26B5B]/30 hover:bg-[#FFF9F0] transition text-left cursor-pointer text-[#302633]"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-lg bg-[#FFF9F0] text-[#302633]/70">
-                    <Sliders className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold">Simulation Settings</div>
-                    <div className="text-[10px] text-[#302633]/60">Latency, simulated editors & tests</div>
-                  </div>
-                </div>
-              </button>
             </div>
           </div>
         </div>

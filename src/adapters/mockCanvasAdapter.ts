@@ -108,6 +108,14 @@ export class MockCanvasAdapter implements CanvasEngineContract {
     this.recordAction('sendToBackSelected');
   }
 
+  lockSelected(locked?: boolean): void {
+    this.recordAction('lockSelected', { locked });
+  }
+
+  isSelectionLocked(): boolean {
+    return false;
+  }
+
   async exportCanvas(options: ExportOptions): Promise<ExportResult> {
     this.recordAction('exportCanvas', options);
     // Explicitly return a simulated result per section 6J
@@ -115,6 +123,14 @@ export class MockCanvasAdapter implements CanvasEngineContract {
       format: options.format,
       simulated: true,
       message: `[Simulated] Export request for ${options.format.toUpperCase()} (Grid: ${options.includeGrid ? 'yes' : 'no'}, Bg: ${options.includeBackground ? 'yes' : 'no'}) processed by MockCanvasAdapter. Fabric.js engine is required for real file generation.`,
+    };
+  }
+
+  getCanvasSnapshot(): Record<string, unknown> | null {
+    return {
+      version: '6',
+      objects: [],
+      timestamp: Date.now(),
     };
   }
 
@@ -186,5 +202,17 @@ export class MockCanvasAdapter implements CanvasEngineContract {
       listener(this.readiness);
     }
   }
+
+  public addTable(_options?: { rows?: number; cols?: number; x?: number; y?: number }): void {}
+
+  public addGraph(_options?: { graphType?: string; data?: string; x?: number; y?: number }): void {}
+
+  public async addImage(_file: File): Promise<void> {}
+
+  public groupSelected(): void {}
+
+  public ungroupSelected(): void {}
+
+  public async loadCanvasSnapshot(_snapshot: Record<string, unknown> | string): Promise<void> {}
 }
 

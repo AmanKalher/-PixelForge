@@ -14,7 +14,7 @@ export const BottomLeftControls: React.FC = () => {
     activeNav,
   } = useWorkspace();
 
-  const isWidePanelOpen = activeNav === 'elements' || activeNav === 'text' || activeNav === 'projects';
+  const isWidePanelOpen = activeNav === 'elements' || activeNav === 'text';
 
   const [isZoomMenuOpen, setIsZoomMenuOpen] = useState(false);
   const zoomMenuRef = useRef<HTMLDivElement>(null);

@@ -21,6 +21,13 @@ import {
   Triangle,
   ArrowDown,
   Sparkles,
+  Lock,
+  Unlock,
+  Star,
+  Heart,
+  Hexagon,
+  Table as TableIcon,
+  BarChart2,
 } from 'lucide-react';
 
 export const ContextualStyleBar: React.FC = () => {
@@ -32,6 +39,10 @@ export const ContextualStyleBar: React.FC = () => {
     deleteSelected,
     bringForwardSelected,
     sendBackwardSelected,
+    lockSelected,
+    isSelectionLocked,
+    groupSelected,
+    ungroupSelected,
     highlightSelectedText,
     highlightWholeText,
     changeStickyTemplate,
@@ -158,14 +169,38 @@ export const ContextualStyleBar: React.FC = () => {
   const isSticky = targetType === 'sticky';
   const isText = targetType === 'text';
   const isTextBearing = isText || isSticky;
-  const isFillableShape = [
-    'rectangle',
-    'rounded-rectangle',
-    'circle',
-    'ellipse',
-    'diamond',
-    'triangle',
-  ].includes(targetType) || isMultiSelection;
+
+  const NON_FILLABLE_TYPES = new Set([
+    'line',
+    'arrow',
+    'wavy',
+    'smooth',
+    'hinged',
+    'line_straight',
+    'line_arrow',
+    'line_bidirectional',
+    'line_dashed',
+    'curve',
+    'curve_smooth',
+    'curve_wavy',
+    'curve_hinged',
+    'brush',
+    'highlighter',
+    'eraser',
+    'pen',
+    'marker',
+    'pencil',
+    'calligraphy',
+    'stroke',
+    'table',
+    'graph',
+    'image',
+    'text',
+    'sticky',
+  ]);
+
+  const isFillableShape =
+    isMultiSelection || (!NON_FILLABLE_TYPES.has(targetType) && !isText && !isSticky);
 
   const strokeWidths = [1, 2, 4, 8, 12];
   const opacities = [1, 0.75, 0.5, 0.25];
@@ -199,7 +234,9 @@ export const ContextualStyleBar: React.FC = () => {
       case 'sticky': return <StickyNote className="w-3.5 h-3.5 text-[#F7D774]" />;
       case 'circle': return <Circle className="w-3.5 h-3.5 text-[#6D3B67]" />;
       case 'ellipse': return <Circle className="w-3.5 h-3.5 scale-x-125 text-[#6D3B67]" />;
-      case 'rounded-rectangle': return <Square className="w-3.5 h-3.5 rounded-xs text-[#6D3B67]" />;
+      case 'rounded-rectangle':
+      case 'roundedRect':
+      case 'square': return <Square className="w-3.5 h-3.5 rounded-xs text-[#6D3B67]" />;
       case 'text': return <Type className="w-3.5 h-3.5 text-[#302633]" />;
       case 'brush': return <PenTool className="w-3.5 h-3.5 text-[#F26B5B]" />;
       case 'highlighter': return <Highlighter className="w-3.5 h-3.5 text-[#F7D774]" />;
@@ -207,8 +244,37 @@ export const ContextualStyleBar: React.FC = () => {
       case 'arrow': return <MoveRight className="w-3.5 h-3.5 text-[#F26B5B]" />;
       case 'diamond': return <Diamond className="w-3.5 h-3.5 text-[#6D3B67]" />;
       case 'triangle': return <Triangle className="w-3.5 h-3.5 text-[#6D3B67]" />;
-      default: return <Square className="w-3.5 h-3.5 text-[#6D3B67]" />;
+      case 'heart': return <Heart className="w-3.5 h-3.5 text-[#F26B5B]" />;
+      case 'table': return <TableIcon className="w-3.5 h-3.5 text-[#818CF8]" />;
+      case 'graph': return <BarChart2 className="w-3.5 h-3.5 text-[#10B981]" />;
+      default:
+        if (type.startsWith('star') || type === 'burst' || type === 'sun') {
+          return <Star className="w-3.5 h-3.5 text-[#F7D774]" />;
+        }
+        if (type.startsWith('arrow') || type.includes('chevron')) {
+          return <MoveRight className="w-3.5 h-3.5 text-[#F26B5B]" />;
+        }
+        if (['pentagon', 'hexagon', 'heptagon', 'octagon', 'nonagon', 'decagon'].includes(type)) {
+          return <Hexagon className="w-3.5 h-3.5 text-[#6D3B67]" />;
+        }
+        return <Square className="w-3.5 h-3.5 text-[#6D3B67]" />;
     }
+  };
+
+  const formatTargetLabel = (type: string) => {
+    if (type === 'table') return 'Table';
+    if (type === 'graph') return 'Chart';
+    if (type === 'star4') return 'Star (4-pt)';
+    if (type === 'star5') return 'Star (5-pt)';
+    if (type === 'star6') return 'Star (6-pt)';
+    if (type === 'star8') return 'Star (8-pt)';
+    if (type === 'doubleArrow') return 'Double arrow';
+    if (type === 'arrowUp') return 'Up arrow';
+    if (type === 'arrowDown') return 'Down arrow';
+    if (type === 'arrowLeft') return 'Left arrow';
+    if (type === 'arrowRight') return 'Right arrow';
+    const spaced = type.replace(/([A-Z])/g, ' $1').replace(/[-_]/g, ' ').trim();
+    return spaced.charAt(0).toUpperCase() + spaced.slice(1);
   };
 
   // Determine current active properties accurately from selected object or defaults
@@ -272,7 +338,7 @@ export const ContextualStyleBar: React.FC = () => {
       {/* Target Type Badge */}
       <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#FFF9F0] border border-[#EFE5D8] text-[#302633] text-xs font-semibold shrink-0">
         {getTargetIcon(targetType)}
-        <span className="capitalize">{targetType.replace('-', ' ')}</span>
+        <span>{formatTargetLabel(targetType)}</span>
       </div>
 
       <div className="h-4 w-px bg-[#EFE5D8] mx-0.5 shrink-0" />
@@ -643,22 +709,49 @@ export const ContextualStyleBar: React.FC = () => {
         <>
           <div className="h-4 w-px bg-slate-200 mx-0.5 shrink-0" />
 
+          {/* Lock / Unlock Action */}
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => lockSelected()}
+            className={`p-1.5 rounded-full transition shrink-0 cursor-pointer ${
+              isSelectionLocked
+                ? 'bg-[#FFF0ED] text-[#F26B5B] hover:bg-[#FCD9D3]'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+            title={isSelectionLocked ? 'Unlock Object' : 'Lock Object'}
+          >
+            {isSelectionLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+          </button>
+
           {/* Duplicate Action */}
           <button
+            type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={duplicateSelected}
-            className="p-1.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition shrink-0 cursor-pointer"
-            title="Duplicate Object (Ctrl+D)"
+            disabled={isSelectionLocked}
+            className={`p-1.5 rounded-full transition shrink-0 cursor-pointer ${
+              isSelectionLocked
+                ? 'opacity-40 cursor-not-allowed text-slate-400'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+            title={isSelectionLocked ? 'Cannot duplicate locked object' : 'Duplicate Object (Ctrl+D)'}
           >
             <Copy className="w-3.5 h-3.5" />
           </button>
 
           {/* Delete Action */}
           <button
+            type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={deleteSelected}
-            className="p-1.5 rounded-full text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition shrink-0 cursor-pointer"
-            title="Delete Object (Del)"
+            disabled={isSelectionLocked}
+            className={`p-1.5 rounded-full transition shrink-0 cursor-pointer ${
+              isSelectionLocked
+                ? 'opacity-40 cursor-not-allowed text-slate-400'
+                : 'text-rose-600 hover:text-rose-700 hover:bg-rose-50'
+            }`}
+            title={isSelectionLocked ? 'Cannot delete locked object' : 'Delete Object (Del)'}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -697,6 +790,29 @@ export const ContextualStyleBar: React.FC = () => {
                 >
                   <ArrowDown className="w-3.5 h-3.5 text-slate-400" />
                   <span>Send to Back</span>
+                </button>
+                <div className="my-1 border-t border-slate-100" />
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    groupSelected();
+                    setIsMoreMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  <Layers className="w-3.5 h-3.5 text-[#F26B5B]" />
+                  <span>Group Selection</span>
+                </button>
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    ungroupSelected();
+                    setIsMoreMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  <Layers className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Ungroup</span>
                 </button>
                 {isText && (
                   <button

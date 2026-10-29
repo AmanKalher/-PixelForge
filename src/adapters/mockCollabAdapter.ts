@@ -3,6 +3,7 @@ import {
   ConnectionStatus,
   Collaborator,
   BoardOperationPayload,
+  BoardRevision,
 } from '../types/whiteboard';
 
 /**
@@ -19,15 +20,35 @@ export class MockCollabAdapter implements CollaborationClientContract {
     name: 'Guest Maker',
     color: '#6366f1',
   };
+  private currentBoardId: string = 'default-board';
+  private revisions: BoardRevision[] = [];
 
   private statusListeners: Set<(status: ConnectionStatus) => void> = new Set();
   private collaboratorListeners: Set<(collaborators: Collaborator[]) => void> = new Set();
   private operationListeners: Set<(op: BoardOperationPayload) => void> = new Set();
+  private revisionListeners: Set<(revisions: BoardRevision[]) => void> = new Set();
 
   public lastBroadcastedPresence: { x: number; y: number } | null = null;
   public operationsSent: BoardOperationPayload[] = [];
 
+  constructor() {
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        const saved = window.sessionStorage.getItem('pixelforge_session_revisions');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            this.revisions = parsed;
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   async connect(boardId: string, user: { name: string; color: string }): Promise<void> {
+    this.currentBoardId = boardId;
     this.localUser = user;
     console.debug(`[MockCollabAdapter] Simulated connect to board "${boardId}" for ${user.name}`);
     this.status = 'connected';
@@ -59,6 +80,55 @@ export class MockCollabAdapter implements CollaborationClientContract {
   sendOperation(operation: BoardOperationPayload): void {
     this.operationsSent.push(operation);
     console.debug('[MockCollabAdapter] Board operation logged (simulated):', operation.type);
+  }
+
+  sendCanvasSync(payload: { objects?: import('../types/whiteboard').CanvasObject[]; fabricState?: unknown }): void {
+    console.debug('[MockCollabAdapter] Canvas sync dispatched (simulated):', payload.objects?.length ?? 0, 'objects');
+  }
+
+  async createRevision(payload: { kind?: 'manual' | 'autosave'; label?: string; snapshot?: unknown }): Promise<BoardRevision> {
+    const rev: BoardRevision = {
+      id: `local-rev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      boardId: this.currentBoardId,
+      revisionNumber: this.revisions.length + 1,
+      kind: payload.kind || 'manual',
+      label: payload.label || `Checkpoint ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+      snapshot: payload.snapshot || { objects: [], timestamp: Date.now() },
+      createdBy: this.localUser.name || 'Anonymous Guest',
+      createdAt: new Date().toISOString(),
+    };
+    this.revisions.unshift(rev);
+    this.persistRevisions();
+    this.notifyRevisions();
+    console.debug('[MockCollabAdapter] Revision created and recorded:', rev.id, rev.label);
+    return rev;
+  }
+
+  getRevisions(): BoardRevision[] {
+    return [...this.revisions];
+  }
+
+  onRevisionsChange(listener: (revisions: BoardRevision[]) => void): () => void {
+    this.revisionListeners.add(listener);
+    listener([...this.revisions]);
+    return () => this.revisionListeners.delete(listener);
+  }
+
+  private notifyRevisions() {
+    const copy = [...this.revisions];
+    for (const listener of this.revisionListeners) {
+      listener(copy);
+    }
+  }
+
+  private persistRevisions() {
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        window.sessionStorage.setItem('pixelforge_session_revisions', JSON.stringify(this.revisions));
+      }
+    } catch {
+      // ignore quota limits
+    }
   }
 
   getStatus(): ConnectionStatus {

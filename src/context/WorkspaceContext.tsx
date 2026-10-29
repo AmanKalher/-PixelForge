@@ -20,11 +20,13 @@ import {
   ExportResult,
   BrushSettings,
   TextFormattingSettings,
+  BoardRevision,
 } from '../types/whiteboard';
 import { CanvasEngineContract, CollaborationClientContract } from '../types/contracts';
 import { MockCanvasAdapter } from '../adapters/mockCanvasAdapter';
 import { MockCollabAdapter } from '../adapters/mockCollabAdapter';
 import { globalFabricCanvasAdapter } from '../engine/fabricCanvasAdapter';
+import { BoardApi } from '../services/boardApi';
 import {
   DEFAULT_STYLE_CONFIG,
   MOCK_COLLABORATORS,
@@ -81,6 +83,9 @@ export interface WorkspaceContextValue {
   duplicateSelected: () => void;
   bringForwardSelected: () => void;
   sendBackwardSelected: () => void;
+  lockSelected: (locked?: boolean) => void;
+  isSelectionLocked: boolean;
+  toggleObjectLock: (id: string) => void;
 
   // Brush Studio & Sticky Gallery
   brushSettings: BrushSettings;
@@ -139,9 +144,15 @@ export interface WorkspaceContextValue {
   setIsShapesPopoverOpen: (open: boolean) => void;
 
   // Whiteboard Navigation Rail & Panels
-  activeNav: 'elements' | 'text' | 'tools' | 'projects' | null;
-  setActiveNav: React.Dispatch<React.SetStateAction<'elements' | 'text' | 'tools' | 'projects' | null>>;
+  activeNav: 'elements' | 'text' | 'tools' | null;
+  setActiveNav: React.Dispatch<React.SetStateAction<'elements' | 'text' | 'tools' | null>>;
   addTextBox: (options?: { x?: number; y?: number; text?: string; fontSize?: number; fontWeight?: string }) => void;
+  addTable: (options?: { rows?: number; cols?: number; x?: number; y?: number }) => void;
+  addGraph: (options?: { graphType?: string; data?: string; x?: number; y?: number }) => void;
+  addImage: (file: File) => Promise<void>;
+  groupSelected: () => void;
+  ungroupSelected: () => void;
+  loadCanvasSnapshot: (snapshot: Record<string, unknown> | string) => Promise<void>;
 
   // Simulation controls
   simulationSettings: SimulationSettings;
@@ -153,6 +164,13 @@ export interface WorkspaceContextValue {
 
   // Actions
   exportCanvas: (options: ExportOptions) => Promise<ExportResult>;
+
+  // Audit & Timeline Revisions
+  revisions: BoardRevision[];
+  createCheckpoint: (customLabel?: string) => Promise<{ success: boolean; revision?: BoardRevision; error?: string; source?: 'database' | 'local' }>;
+  refreshRevisions: () => Promise<void>;
+  isBackendOnline: boolean;
+  getCanvasSnapshot: () => Record<string, unknown>;
 
   // Selection Screen Bounds for dynamic floating contextual bar
   selectionScreenBounds: { left: number; top: number; width: number; height: number } | null;
@@ -387,7 +405,10 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
   const [isLayersPanelOpen, setIsLayersPanelOpen] = useState<boolean>(false);
   const [isStickyGalleryOpen, setIsStickyGalleryOpen] = useState<boolean>(false);
   const [isBrushStudioOpen, setIsBrushStudioOpen] = useState<boolean>(false);
-  const [activeNav, setActiveNav] = useState<'elements' | 'text' | 'tools' | 'projects' | null>(null);
+  const [activeNav, setActiveNav] = useState<'elements' | 'text' | 'tools' | null>(null);
+  const [isSelectionLockedState, setIsSelectionLockedState] = useState<boolean>(false);
+  const [revisions, setRevisions] = useState<BoardRevision[]>([]);
+  const [isBackendOnline, setIsBackendOnline] = useState<boolean>(false);
 
   // Brush Studio & Sticky Template State
   const [brushSettings, setBrushSettingsState] = useState<BrushSettings>({
@@ -532,6 +553,7 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
           setHasActiveFabricObject(Boolean(selectedId));
           if (!selectedId) {
             setSelectionScreenBounds(null);
+            setIsSelectionLockedState(false);
             setTextSettingsState({
               fontFamily: 'Arial',
               fontSize: 24,
@@ -545,6 +567,7 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
             });
           }
           if (selectedObj) {
+            setIsSelectionLockedState(Boolean(selectedObj.isPixelForgeLocked));
             setStyleConfig((prev) => ({
               ...prev,
               strokeColor: selectedObj.strokeColor !== undefined ? selectedObj.strokeColor : prev.strokeColor,
@@ -603,10 +626,18 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
   useEffect(() => {
     const unsubStatus = collabClient.onStatusChange(setConnectionStatus);
     const unsubCollab = collabClient.onCollaboratorsChange(setCollaborators);
+    const unsubRevisions = collabClient.onRevisionsChange
+      ? collabClient.onRevisionsChange((revs) => setRevisions(revs))
+      : () => {};
+
+    if (collabClient.getRevisions) {
+      setRevisions(collabClient.getRevisions());
+    }
 
     return () => {
       unsubStatus();
       unsubCollab();
+      unsubRevisions();
     };
   }, [collabClient]);
 
@@ -1077,6 +1108,119 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
     [canvasEngine]
   );
 
+  // Helper to serialize current canvas state
+  const getCanvasSnapshot = useCallback((): Record<string, unknown> => {
+    if (isUIPreviewMode) {
+      return {
+        version: '6',
+        objects: historyRef.current.present,
+        timestamp: Date.now(),
+      };
+    }
+    const engineSnapshot = canvasEngine.getCanvasSnapshot?.();
+    if (engineSnapshot) {
+      return engineSnapshot;
+    }
+    return {
+      version: '6',
+      objects: fabricObjects.length > 0 ? fabricObjects : historyRef.current.present,
+      timestamp: Date.now(),
+    };
+  }, [canvasEngine, isUIPreviewMode, fabricObjects]);
+
+  // Refresh revisions list from backend if connected, or from collabClient
+  const refreshRevisions = useCallback(async (): Promise<void> => {
+    try {
+      const health = await BoardApi.checkHealth();
+      const online = health.status === 'ok';
+      setIsBackendOnline(online);
+      if (online) {
+        const res = await BoardApi.listRevisions('default-board');
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setRevisions(res.data);
+          return;
+        }
+      }
+    } catch {
+      setIsBackendOnline(false);
+    }
+
+    if (collabClient?.getRevisions) {
+      setRevisions(collabClient.getRevisions());
+    }
+  }, [collabClient]);
+
+  // Create Checkpoint handler
+  const createCheckpoint = useCallback(
+    async (customLabel?: string): Promise<{ success: boolean; revision?: BoardRevision; error?: string; source?: 'database' | 'local' }> => {
+      const snapshot = getCanvasSnapshot();
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const label = customLabel?.trim() || `Checkpoint ${timeStr}`;
+
+      // 1. Try backend persistence first if reachable
+      try {
+        const health = await BoardApi.checkHealth();
+        if (health.status === 'ok') {
+          setIsBackendOnline(true);
+          const res = await BoardApi.createRevision('default-board', {
+            kind: 'manual',
+            label,
+            snapshot,
+          });
+          if (res.success && res.data) {
+            const serverRev = res.data;
+            setRevisions((prev) => [serverRev, ...prev.filter((r) => r.id !== serverRev.id)]);
+            return { success: true, revision: serverRev, source: 'database' };
+          }
+        }
+      } catch (err) {
+        console.warn('[WorkspaceContext] Backend revision save failed, falling back to local session:', err);
+      }
+
+      setIsBackendOnline(false);
+
+      // 2. Local fallback using collabClient / local session
+      if (collabClient?.createRevision) {
+        try {
+          const rev = await collabClient.createRevision({
+            kind: 'manual',
+            label,
+            snapshot,
+          });
+          const createdRev: BoardRevision = rev || {
+            id: `local-rev-${Date.now()}`,
+            boardId: 'default-board',
+            revisionNumber: revisions.length + 1,
+            kind: 'manual',
+            label,
+            snapshot,
+            createdBy: guestUser?.name || 'Guest Maker',
+            createdAt: new Date().toISOString(),
+          };
+          setRevisions((prev) => [createdRev, ...prev.filter((r) => r.id !== createdRev.id)]);
+          return { success: true, revision: createdRev, source: 'local' };
+        } catch (err: any) {
+          return { success: false, error: err?.message || 'Failed to save local checkpoint' };
+        }
+      }
+
+      // 3. In-memory fallback
+      const fallbackRev: BoardRevision = {
+        id: `local-rev-${Date.now()}`,
+        boardId: 'default-board',
+        revisionNumber: revisions.length + 1,
+        kind: 'manual',
+        label,
+        snapshot,
+        createdBy: guestUser?.name || 'Guest Maker',
+        createdAt: new Date().toISOString(),
+      };
+      setRevisions((prev) => [fallbackRev, ...prev]);
+      return { success: true, revision: fallbackRev, source: 'local' };
+    },
+    [getCanvasSnapshot, collabClient, guestUser, revisions.length]
+  );
+
   // Guest user update with session storage persistence
   const setGuestUser = useCallback((user: Partial<GuestUserInfo>) => {
     setGuestUserState((prev) => {
@@ -1158,6 +1302,38 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
     [canvasEngine, isUIPreviewMode, fabricObjects, commitSnapshot, selectedMockObjectId]
   );
 
+  const toggleObjectLock = useCallback(
+    (id: string) => {
+      const currentList = isUIPreviewMode ? historyRef.current.present : (fabricObjects.length > 0 ? fabricObjects : historyRef.current.present);
+      const target = currentList.find((o) => o.id === id);
+      const nextLocked = target ? !target.isPixelForgeLocked : true;
+      canvasEngine.updateObjectProperties?.(id, { isPixelForgeLocked: nextLocked });
+      if (isUIPreviewMode) {
+        const currentObjects = historyRef.current.present;
+        const newObjects = currentObjects.map((o) =>
+          o.id === id ? { ...o, isPixelForgeLocked: nextLocked } : o
+        );
+        commitSnapshot(newObjects, selectedMockObjectId);
+      }
+      if (selectedMockObjectId === id) {
+        setIsSelectionLockedState(nextLocked);
+      }
+    },
+    [canvasEngine, isUIPreviewMode, fabricObjects, commitSnapshot, selectedMockObjectId]
+  );
+
+  const lockSelected = useCallback(
+    (locked?: boolean) => {
+      const nextLocked = locked !== undefined ? locked : !isSelectionLockedState;
+      canvasEngine.lockSelected?.(nextLocked);
+      setIsSelectionLockedState(nextLocked);
+      if (selectedMockObjectId) {
+        updateObjectProperties(selectedMockObjectId, { isPixelForgeLocked: nextLocked });
+      }
+    },
+    [canvasEngine, isSelectionLockedState, selectedMockObjectId, updateObjectProperties]
+  );
+
   const addTextBox = useCallback(
     (options?: { x?: number; y?: number; text?: string; fontSize?: number; fontWeight?: string }) => {
       if (canvasEngine.addTextBox) {
@@ -1167,6 +1343,54 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       }
     },
     [canvasEngine, isUIPreviewMode, createMockObject]
+  );
+
+  const addTable = useCallback(
+    (options?: { rows?: number; cols?: number; x?: number; y?: number }) => {
+      if (canvasEngine.addTable) {
+        canvasEngine.addTable(options);
+      }
+    },
+    [canvasEngine]
+  );
+
+  const addGraph = useCallback(
+    (options?: { graphType?: string; data?: string; x?: number; y?: number }) => {
+      if (canvasEngine.addGraph) {
+        canvasEngine.addGraph(options);
+      }
+    },
+    [canvasEngine]
+  );
+
+  const addImage = useCallback(
+    async (file: File) => {
+      if (canvasEngine.addImage) {
+        await canvasEngine.addImage(file);
+      }
+    },
+    [canvasEngine]
+  );
+
+  const groupSelected = useCallback(() => {
+    if (canvasEngine.groupSelected) {
+      canvasEngine.groupSelected();
+    }
+  }, [canvasEngine]);
+
+  const ungroupSelected = useCallback(() => {
+    if (canvasEngine.ungroupSelected) {
+      canvasEngine.ungroupSelected();
+    }
+  }, [canvasEngine]);
+
+  const loadCanvasSnapshot = useCallback(
+    async (snapshot: Record<string, unknown> | string) => {
+      if (canvasEngine.loadCanvasSnapshot) {
+        await canvasEngine.loadCanvasSnapshot(snapshot);
+      }
+    },
+    [canvasEngine]
   );
 
   // Simulation controls
@@ -1260,6 +1484,9 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       duplicateSelected,
       bringForwardSelected,
       sendBackwardSelected,
+      lockSelected,
+      isSelectionLocked: isSelectionLockedState,
+      toggleObjectLock,
       brushSettings,
       updateBrushSettings,
       selectedStickyTemplate,
@@ -1311,6 +1538,12 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       activeNav,
       setActiveNav,
       addTextBox,
+      addTable,
+      addGraph,
+      addImage,
+      groupSelected,
+      ungroupSelected,
+      loadCanvasSnapshot,
       simulationSettings,
       updateSimulatedStatus,
       toggleDemoCollaborators,
@@ -1318,6 +1551,11 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       toggleEmptyBoard,
       toggleErrorState,
       exportCanvas,
+      revisions,
+      createCheckpoint,
+      refreshRevisions,
+      isBackendOnline,
+      getCanvasSnapshot,
       selectionScreenBounds,
       canvasEngine,
       collabClient,
@@ -1353,6 +1591,9 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       duplicateSelected,
       bringForwardSelected,
       sendBackwardSelected,
+      lockSelected,
+      isSelectionLockedState,
+      toggleObjectLock,
       brushSettings,
       updateBrushSettings,
       selectedStickyTemplate,
@@ -1398,6 +1639,12 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       activeNav,
       setActiveNav,
       addTextBox,
+      addTable,
+      addGraph,
+      addImage,
+      groupSelected,
+      ungroupSelected,
+      loadCanvasSnapshot,
       simulationSettings,
       updateSimulatedStatus,
       toggleDemoCollaborators,
@@ -1405,6 +1652,11 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       toggleEmptyBoard,
       toggleErrorState,
       exportCanvas,
+      revisions,
+      createCheckpoint,
+      refreshRevisions,
+      isBackendOnline,
+      getCanvasSnapshot,
       canvasEngine,
       collabClient,
     ]

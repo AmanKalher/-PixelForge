@@ -25,6 +25,7 @@ import {
   ConnectionStatus,
   Collaborator,
   BoardOperationPayload,
+  BoardRevision,
 } from './whiteboard';
 
 /**
@@ -36,6 +37,11 @@ export interface CanvasEngineContract {
    * Activates the selected drawing/interaction tool.
    */
   setTool(tool: ToolType): void;
+
+  /**
+   * Subscribes to tool changes emitted by the canvas engine (e.g. after completing lasso selection).
+   */
+  onToolChange?(listener: (tool: ToolType) => void): () => void;
 
   /**
    * Updates global or selected object styling parameters (stroke, fill, width, sticky color).
@@ -98,9 +104,24 @@ export interface CanvasEngineContract {
   bringToFrontSelected?(): Promise<void> | void;
 
   /**
+   * Locks or unlocks the currently selected object(s).
+   */
+  lockSelected?(locked?: boolean): void;
+
+  /**
+   * Returns whether the active selection is locked.
+   */
+  isSelectionLocked?(): boolean;
+
+  /**
    * Exports the canvas as PNG or SVG string/data-URI.
    */
   exportCanvas(options: ExportOptions): Promise<ExportResult>;
+
+  /**
+   * Serializes current canvas state to a JSON-compatible snapshot object.
+   */
+  getCanvasSnapshot?(): Record<string, unknown> | null;
 
   /**
    * Returns current engine readiness.
@@ -257,6 +278,36 @@ export interface CanvasEngineContract {
    * Seeds optional demo fixtures onto the canvas on user demand.
    */
   seedDemoContent?(): Promise<void>;
+
+  /**
+   * Adds a customizable grid table onto the canvas.
+   */
+  addTable?(options?: { rows?: number; cols?: number; x?: number; y?: number }): void;
+
+  /**
+   * Adds a data-driven chart / graph onto the canvas.
+   */
+  addGraph?(options?: { graphType?: string; data?: string; x?: number; y?: number }): void;
+
+  /**
+   * Adds an image file directly onto the canvas.
+   */
+  addImage?(file: File): Promise<void>;
+
+  /**
+   * Groups currently selected multiple objects.
+   */
+  groupSelected?(): void;
+
+  /**
+   * Ungroups currently selected group.
+   */
+  ungroupSelected?(): void;
+
+  /**
+   * Loads a serialized snapshot onto the canvas.
+   */
+  loadCanvasSnapshot?(snapshot: Record<string, unknown> | string): Promise<void>;
 }
 
 /**
@@ -318,5 +369,62 @@ export interface CollaborationClientContract {
    * Subscribes to incoming remote board operations.
    */
   onOperationReceived(listener: (operation: BoardOperationPayload) => void): () => void;
+
+  /**
+   * Broadcasts a full canvas sync or snapshot to peers and backend persistence.
+   */
+  sendCanvasSync?(payload: { objects?: CanvasObject[]; fabricState?: unknown }): void;
+
+  /**
+   * Creates a named or autosave revision checkpoint in the database or local storage.
+   */
+  createRevision?(payload: { kind?: 'manual' | 'autosave'; label?: string; snapshot?: unknown }): Promise<BoardRevision> | BoardRevision | void;
+
+  /**
+   * Retrieves list of recorded board revisions.
+   */
+  getRevisions?(): BoardRevision[];
+
+  /**
+   * Subscribes to revisions list changes.
+   */
+  onRevisionsChange?(listener: (revisions: BoardRevision[]) => void): () => void;
+
+  /**
+   * Subscribes to remote canvas sync updates.
+   */
+  onCanvasSynced?(listener: (payload: { objects?: CanvasObject[]; fabricState?: unknown; timestamp: number }) => void): () => void;
+
+  /**
+   * Subscribes to revisions created by peers or server.
+   */
+  onRevisionCreated?(listener: (revision: BoardRevision) => void): () => void;
+}
+
+/**
+ * Backend REST API Response contracts
+ * Aligned with revised-canvas-engine controllers and database schema.
+ */
+export interface BoardSummary {
+  id: string;
+  name: string;
+  settings?: Record<string, unknown>;
+  owner_id?: string;
+  is_archived?: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BoardDetails extends BoardSummary {
+  objects: unknown[];
+  recentRevisions: BoardRevision[];
+}
+
+export interface BoardApiResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  count?: number;
+  error?: string;
+  message?: string;
 }
 
