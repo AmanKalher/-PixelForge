@@ -1,0 +1,38 @@
+{
+  "name": "pixelforge-backend",
+  "version": "1.0.0",
+  "description": "PixelForge Real-time Collaboration & Persistence Backend (Node.js + Express + Socket.IO)",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "db:init": "node src/scripts/initDb.js",
+    "test": "node test/testCollaboration.js"
+  },
+  "keywords": [
+    "pixelforge",
+    "collaboration",
+    "whiteboard",
+    "socketio",
+    "express",
+    "fabricjs",
+    "postgresql"
+  ],
+  "author": "PixelForge Team",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.13.3",
+    "socket.io": "^4.8.1",
+    "uuid": "^11.1.0",
+    "yjs": "^13.6.33"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9",
+    "socket.io-client": "^4.8.1"
+  }
+}
