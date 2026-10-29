@@ -11,6 +11,7 @@ export const UIPreviewOverlay: React.FC = () => {
     setSelectedMockObjectId,
     simulationSettings,
     activeTool,
+    setActiveTool,
     createMockObject,
     updateObjectText,
     editingObjectId,
@@ -26,7 +27,7 @@ export const UIPreviewOverlay: React.FC = () => {
 
   const [tempText, setTempText] = useState('');
   const [currentStroke, setCurrentStroke] = useState<{
-    tool: 'brush' | 'highlighter';
+    tool: 'brush' | 'highlighter' | 'lasso';
     points: { x: number; y: number }[];
   } | null>(null);
 
@@ -137,6 +138,60 @@ export const UIPreviewOverlay: React.FC = () => {
 
       window.addEventListener('pointermove', onStrokeMove);
       window.addEventListener('pointerup', onStrokeUp);
+      return;
+    }
+
+    // 2b. Lasso Selection in Preview Mode
+    if (activeTool === 'lasso') {
+      const startPoint = getCanvasCoords(e.clientX, e.clientY);
+      const points = [startPoint];
+      setCurrentStroke({ tool: 'lasso', points });
+
+      const onLassoMove = (ev: PointerEvent) => {
+        const nextPt = getCanvasCoords(ev.clientX, ev.clientY);
+        const lastPt = points[points.length - 1];
+        if (Math.hypot(nextPt.x - lastPt.x, nextPt.y - lastPt.y) >= 3) {
+          points.push(nextPt);
+          setCurrentStroke({ tool: 'lasso', points: [...points] });
+        }
+      };
+
+      const onLassoUp = () => {
+        window.removeEventListener('pointermove', onLassoMove);
+        window.removeEventListener('pointerup', onLassoUp);
+        setCurrentStroke(null);
+
+        if (points.length >= 3) {
+          const inside = (px: number, py: number) => {
+            let res = false;
+            for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+              const a = points[i];
+              const b = points[j];
+              const crosses =
+                a.y > py !== b.y > py &&
+                px < ((b.x - a.x) * (py - a.y)) / ((b.y - a.y) || 1e-9) + a.x;
+              if (crosses) res = !res;
+            }
+            return res;
+          };
+
+          const enclosed = mockObjects.filter((o) => {
+            const cx = o.x + (o.width || 0) / 2;
+            const cy = o.y + (o.height || 0) / 2;
+            return inside(cx, cy);
+          });
+
+          if (enclosed.length > 0) {
+            setSelectedMockObjectId(enclosed[0].id);
+          } else {
+            setSelectedMockObjectId(null);
+          }
+        }
+        setActiveTool('select');
+      };
+
+      window.addEventListener('pointermove', onLassoMove);
+      window.addEventListener('pointerup', onLassoUp);
       return;
     }
 
@@ -918,17 +973,22 @@ export const UIPreviewOverlay: React.FC = () => {
             <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none">
               <path
                 d={pointsToSvgPath(currentStroke.points)}
-                fill="none"
+                fill={currentStroke.tool === 'lasso' ? 'rgba(242, 107, 91, 0.08)' : 'none'}
                 stroke={
-                  currentStroke.tool === 'highlighter'
+                  currentStroke.tool === 'lasso'
+                    ? '#F26B5B'
+                    : currentStroke.tool === 'highlighter'
                     ? '#fef08a'
                     : styleConfig.strokeColor || '#F26B5B'
                 }
                 strokeWidth={
-                  currentStroke.tool === 'highlighter'
+                  currentStroke.tool === 'lasso'
+                    ? 2
+                    : currentStroke.tool === 'highlighter'
                     ? 16
                     : styleConfig.brushSize || styleConfig.strokeWidth || 3
                 }
+                strokeDasharray={currentStroke.tool === 'lasso' ? '6, 4' : undefined}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 opacity={currentStroke.tool === 'highlighter' ? 0.45 : 1}

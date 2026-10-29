@@ -197,6 +197,7 @@ export const ContextualStyleBar: React.FC = () => {
     'image',
     'text',
     'sticky',
+    'lasso',
   ]);
 
   const isFillableShape =

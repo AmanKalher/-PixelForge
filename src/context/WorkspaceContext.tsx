@@ -609,6 +609,12 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       ? canvasEngine.onTextSettingsChange(setTextSettingsState)
       : () => {};
 
+    const unsubTool = canvasEngine.onToolChange
+      ? canvasEngine.onToolChange((tool) => {
+          setActiveToolState(tool);
+        })
+      : () => {};
+
     return () => {
       unsubReadiness();
       unsubUndoRedo();
@@ -619,6 +625,7 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       unsubBounds();
       unsubBrush();
       unsubText();
+      unsubTool();
     };
   }, [canvasEngine]);
 

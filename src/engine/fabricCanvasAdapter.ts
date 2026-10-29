@@ -410,8 +410,22 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
     }
     this.currentTool = tool;
     if (this.canvas) {
+      if (tool !== 'lasso' && this.lassoState.active) {
+        if (this.lassoState.preview) {
+          this.canvas.remove(this.lassoState.preview);
+        }
+        this.lassoState = { active: false, points: [], preview: null };
+      }
       this.applyToolToCanvas(tool);
     }
+    for (const listener of this.toolListeners) {
+      listener(tool);
+    }
+  }
+
+  public onToolChange(listener: (tool: ToolType) => void): () => void {
+    this.toolListeners.add(listener);
+    return () => this.toolListeners.delete(listener);
   }
 
   public setStyle(style: Partial<StyleConfig>): void {
@@ -1869,6 +1883,10 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
       canvas.isDrawingMode = false;
       canvas.selection = false;
       canvas.defaultCursor = 'text';
+    } else if (tool === 'lasso') {
+      canvas.isDrawingMode = false;
+      canvas.selection = false;
+      canvas.defaultCursor = 'crosshair';
     } else if (tool === 'select') {
       canvas.isDrawingMode = false;
       canvas.selection = true;
@@ -1882,7 +1900,7 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
 
     // Toggle object selectability depending on tool
     canvas.getObjects().forEach((obj) => {
-      if (isDrawingTool || tool === 'eraser' || tool === 'pan') {
+      if (isDrawingTool || tool === 'eraser' || tool === 'pan' || tool === 'lasso') {
         obj.selectable = false;
         obj.evented = false;
       } else {
@@ -2076,6 +2094,33 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
       const point = getWorldPointer(canvas, opt.e);
       this.notifyCoordinates(point);
 
+      // Lasso selection drag tracking
+      if (this.currentTool === 'lasso' && this.lassoState.active) {
+        const last = this.lassoState.points[this.lassoState.points.length - 1];
+        if (!last || Math.hypot(point.x - last.x, point.y - last.y) >= 3) {
+          this.lassoState.points.push(point);
+        }
+        if (this.lassoState.preview && this.lassoState.points.length >= 2) {
+          canvas.remove(this.lassoState.preview);
+          const pathData = this.lassoState.points
+            .map((p, index) => `${index ? 'L' : 'M'} ${p.x} ${p.y}`)
+            .join(' ');
+          this.lassoState.preview = new Path(pathData, {
+            fill: 'rgba(242, 107, 91, 0.08)',
+            stroke: '#F26B5B',
+            strokeWidth: 2,
+            strokeDashArray: [6, 4],
+            objectCaching: false,
+            selectable: false,
+            evented: false,
+          });
+          (this.lassoState.preview as any).isPixelForgeLassoPreview = true;
+          canvas.add(this.lassoState.preview);
+        }
+        canvas.requestRenderAll();
+        return;
+      }
+
       if (this.isPanning) {
         const { clientX, clientY } = getPointerClientXY(opt.e);
         const dx = clientX - this.lastPanClientX;
@@ -2148,6 +2193,26 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
         return;
       }
 
+      // Lasso selection trigger
+      if (this.currentTool === 'lasso') {
+        canvas.discardActiveObject();
+        const preview = new Path(`M ${point.x} ${point.y}`, {
+          fill: 'rgba(242, 107, 91, 0.08)',
+          stroke: '#F26B5B',
+          strokeWidth: 2,
+          strokeDashArray: [6, 4],
+          objectCaching: false,
+          selectable: false,
+          evented: false,
+        });
+        (preview as any).isPixelForgeLassoPreview = true;
+        canvas.add(preview);
+        this.lassoState = { active: true, points: [point], preview };
+        canvas.selection = false;
+        canvas.requestRenderAll();
+        return;
+      }
+
       // Eraser trigger
       if (this.currentTool === 'eraser') {
         if (this.brushSettings.eraserMode === 'whole') {
@@ -2206,6 +2271,7 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
       // Shape placement
       const nonShapeTools = [
         'select',
+        'lasso',
         'pan',
         'brush',
         'highlighter',
@@ -2235,6 +2301,80 @@ export class FabricCanvasAdapter implements CanvasEngineContract {
       this.isPanning = false;
       this.isErasing = false;
       this.lastEraserPoint = null;
+
+      // Finalize Lasso Selection
+      if (this.lassoState.active) {
+        const { points, preview } = this.lassoState;
+        this.lassoState = { active: false, points: [], preview: null };
+        if (preview) {
+          canvas.remove(preview);
+        }
+
+        const polygon = points.length >= 3 ? points : [];
+        const inside = (px: number, py: number) => {
+          let result = false;
+          for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const a = polygon[i];
+            const b = polygon[j];
+            const crosses =
+              a.y > py !== b.y > py &&
+              px < ((b.x - a.x) * (py - a.y)) / ((b.y - a.y) || 1e-9) + a.x;
+            if (crosses) result = !result;
+          }
+          return result;
+        };
+
+        const enclosedObjects = polygon.length >= 3
+          ? canvas.getObjects().filter((obj) => {
+              if (
+                (obj as any).isPixelForgeLassoPreview ||
+                (obj as any).isGridHelper ||
+                (obj as any).isTempStickyEditor ||
+                (obj as any).isTempTableEditor
+              ) {
+                return false;
+              }
+              const center = typeof obj.getCenterPoint === 'function' ? obj.getCenterPoint() : { x: obj.left, y: obj.top };
+              if (inside(center.x, center.y)) return true;
+              if (typeof obj.getBoundingRect === 'function') {
+                const bbox = obj.getBoundingRect();
+                if (
+                  inside(bbox.left, bbox.top) ||
+                  inside(bbox.left + bbox.width, bbox.top) ||
+                  inside(bbox.left, bbox.top + bbox.height) ||
+                  inside(bbox.left + bbox.width, bbox.top + bbox.height)
+                ) {
+                  return true;
+                }
+              }
+              return false;
+            })
+          : [];
+
+        canvas.discardActiveObject();
+
+        if (enclosedObjects.length === 1) {
+          enclosedObjects[0].selectable = true;
+          enclosedObjects[0].evented = true;
+          canvas.setActiveObject(enclosedObjects[0]);
+          this.notifySelection(enclosedObjects[0]);
+        } else if (enclosedObjects.length > 1) {
+          enclosedObjects.forEach((obj) => {
+            obj.selectable = true;
+            obj.evented = true;
+          });
+          const activeSelection = new ActiveSelection(enclosedObjects, { canvas });
+          canvas.setActiveObject(activeSelection);
+          this.notifySelection(activeSelection);
+        } else {
+          this.notifySelection(null);
+        }
+
+        this.setTool('select');
+        canvas.requestRenderAll();
+        this.notifySelectionBounds();
+        return;
+      }
 
       if (this.currentTool === 'pan' || this.isSpacePressed) {
         canvas.defaultCursor = 'grab';
